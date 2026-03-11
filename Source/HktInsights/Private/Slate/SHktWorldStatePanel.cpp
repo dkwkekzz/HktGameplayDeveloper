@@ -72,7 +72,7 @@ void SHktWorldStatePanel::Construct(const FArguments& InArgs)
                     if (Selected.IsValid())
                     {
                         SelectedSource = *Selected;
-                        CachedVersion = 0; // 강제 갱신
+                        CachedVersion = 0;
                         RefreshData();
                     }
                 })
@@ -121,17 +121,38 @@ void SHktWorldStatePanel::Construct(const FArguments& InArgs)
             })
         ]
 
-        // ── 엔티티 그리드 ──
+        // ── 상단: 엔티티 목록 (고정 3컬럼) ──
         + SVerticalBox::Slot()
         .FillHeight(1.0f)
         [
-            SAssignNew(GridContainer, SVerticalBox)
+            SAssignNew(ListView, SListView<TSharedPtr<FHktWorldStateEntityRow>>)
+            .ListItemsSource(&FilteredRows)
+            .OnGenerateRow(this, &SHktWorldStatePanel::OnGenerateRow)
+            .OnSelectionChanged_Lambda([this](TSharedPtr<FHktWorldStateEntityRow> Item, ESelectInfo::Type SelectInfo)
+            {
+                if (SelectInfo == ESelectInfo::Direct) return;  // 코드에서 호출한 SetSelection 무시
+                SelectedEntityKey = Item.IsValid() ? Item->EntityKey : FString();
+                BuildDetailPanel();
+            })
+            .SelectionMode(ESelectionMode::Single)
+            .HeaderRow
+            (
+                SNew(SHeaderRow)
+                + SHeaderRow::Column(TEXT("_Entity"))
+                    .DefaultLabel(LOCTEXT("ColEntity", "Entity"))
+                    .FillWidth(1.0f)
+                + SHeaderRow::Column(TEXT("Type"))
+                    .DefaultLabel(LOCTEXT("ColType", "Type"))
+                    .FillWidth(1.0f)
+                + SHeaderRow::Column(TEXT("Owner"))
+                    .DefaultLabel(LOCTEXT("ColOwner", "Owner"))
+                    .FillWidth(1.0f)
+            )
         ]
 
-        // ── 선택 상세 패널 ──
+        // ── 하단: 선택 상세 패널 ──
         + SVerticalBox::Slot()
-        .AutoHeight()
-        .MaxHeight(200.f)
+        .FillHeight(0.6f)
         .Padding(4.f)
         [
             SAssignNew(DetailContainer, SVerticalBox)
@@ -141,6 +162,7 @@ void SHktWorldStatePanel::Construct(const FArguments& InArgs)
     CachedVersion = FHktCoreDataCollector::Get().GetVersion();
     RebuildSourceOptions();
     RefreshData();
+    BuildDetailPanel();
 
     // 0.1초 Version 폴링
     RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateLambda(
@@ -209,7 +231,8 @@ void SHktWorldStatePanel::RefreshData()
         {
             AllRows.Reset();
             FilteredRows.Reset();
-            if (ListView.IsValid()) ListView->RequestListRefresh();
+            EntityRowMap.Empty();
+            ListView->RequestListRefresh();
             FrameText->SetText(FText::GetEmpty());
             EntityCountText->SetText(FText::GetEmpty());
             return;
@@ -219,15 +242,15 @@ void SHktWorldStatePanel::RefreshData()
     const FString Category = FString::Printf(TEXT("WorldState.%s"), *SelectedSource);
     TArray<TPair<FString, FString>> Entries = FHktCoreDataCollector::Get().GetEntries(Category);
 
-    // 메타 vs 엔티티 분리 & 파싱
+    // ── 파싱 ──
     FString FrameStr, CountStr;
-    TArray<TSharedPtr<FHktWorldStateEntityRow>> NewRows;
-    TSet<FString> SeenColumns;
-    TArray<FString> NewColumnOrder;
+    TMap<FString, TMap<FString, FString>> ParsedEntities;
+    TSet<FString> SeenProps;
+    TArray<FString> NewPropertyOrder;
 
-    // Type, Owner 고정 선두 컬럼
-    NewColumnOrder.Add(TEXT("Type"));  SeenColumns.Add(TEXT("Type"));
-    NewColumnOrder.Add(TEXT("Owner")); SeenColumns.Add(TEXT("Owner"));
+    // Type, Owner 선두 고정
+    NewPropertyOrder.Add(TEXT("Type"));  SeenProps.Add(TEXT("Type"));
+    NewPropertyOrder.Add(TEXT("Owner")); SeenProps.Add(TEXT("Owner"));
 
     for (const auto& Entry : Entries)
     {
@@ -235,9 +258,7 @@ void SHktWorldStatePanel::RefreshData()
         if (Entry.Key == TEXT("_EntityCount")) { CountStr = Entry.Value; continue; }
         if (!Entry.Key.StartsWith(TEXT("E_"))) continue;
 
-        TSharedPtr<FHktWorldStateEntityRow> Row = MakeShared<FHktWorldStateEntityRow>();
-        Row->EntityKey = Entry.Key;
-
+        TMap<FString, FString>& Props = ParsedEntities.Add(Entry.Key);
         TArray<FString> Segments;
         Entry.Value.ParseIntoArray(Segments, TEXT("|"), true);
         for (FString& Seg : Segments)
@@ -248,101 +269,108 @@ void SHktWorldStatePanel::RefreshData()
             {
                 FString PropName = Seg.Left(EqIdx);
                 FString PropValue = Seg.Mid(EqIdx + 1);
-                Row->Props.Add(PropName, PropValue);
+                Props.Add(PropName, PropValue);
 
-                if (!SeenColumns.Contains(PropName))
+                if (!SeenProps.Contains(PropName))
                 {
-                    SeenColumns.Add(PropName);
-                    NewColumnOrder.Add(PropName);
+                    SeenProps.Add(PropName);
+                    NewPropertyOrder.Add(PropName);
                 }
             }
         }
-        NewRows.Add(Row);
     }
 
-    // 메타 정보 갱신
+    // ── 메타 갱신 ──
     FrameText->SetText(FText::FromString(
         FrameStr.IsEmpty() ? TEXT("") : FString::Printf(TEXT("Frame: %s"), *FrameStr)));
     EntityCountText->SetText(FText::FromString(
         CountStr.IsEmpty() ? TEXT("") : FString::Printf(TEXT("  Entities: %s"), *CountStr)));
 
-    AllRows = MoveTemp(NewRows);
+    // ── 엔티티 셋 변경 감지 & Props in-place 갱신 ──
+    bool bEntitySetChanged = false;
 
-    // 컬럼 변경 시 그리드 재구성
-    if (NewColumnOrder != CurrentColumns)
+    // 제거된 엔티티
+    TArray<FString> ToRemove;
+    for (auto& KV : EntityRowMap)
     {
-        CurrentColumns = NewColumnOrder;
-        RebuildGrid();
+        if (!ParsedEntities.Contains(KV.Key))
+        {
+            ToRemove.Add(KV.Key);
+            bEntitySetChanged = true;
+        }
+    }
+    for (const FString& Key : ToRemove)
+    {
+        EntityRowMap.Remove(Key);
     }
 
-    RebuildFilteredRows();
-
-    // 선택 상태 복원
-    if (SelectedEntity.IsValid() && ListView.IsValid())
+    // 추가 & 기존 Props 갱신
+    for (auto& KV : ParsedEntities)
     {
-        FString SelKey = SelectedEntity->EntityKey;
-        TSharedPtr<FHktWorldStateEntityRow> NewSel;
-        for (const auto& Row : FilteredRows)
+        if (TSharedPtr<FHktWorldStateEntityRow>* Existing = EntityRowMap.Find(KV.Key))
         {
-            if (Row->EntityKey == SelKey) { NewSel = Row; break; }
-        }
-        SelectedEntity = NewSel;
-        if (NewSel.IsValid())
-        {
-            ListView->SetSelection(NewSel, ESelectInfo::Direct);
+            // 기존 엔티티: Props만 갱신 (포인터 안정, 람다가 자동으로 최신 값 읽음)
+            (*Existing)->Props = MoveTemp(KV.Value);
         }
         else
         {
-            ListView->ClearSelection();
+            // 신규 엔티티
+            TSharedPtr<FHktWorldStateEntityRow> Row = MakeShared<FHktWorldStateEntityRow>();
+            Row->EntityKey = KV.Key;
+            Row->Props = MoveTemp(KV.Value);
+            EntityRowMap.Add(KV.Key, Row);
+            bEntitySetChanged = true;
         }
     }
 
-    UpdateDetailPanel();
-}
-
-// ============================================================================
-// Grid (SListView + SMultiColumnTableRow)
-// ============================================================================
-
-void SHktWorldStatePanel::RebuildGrid()
-{
-    GridContainer->ClearChildren();
-
-    HeaderRow = SNew(SHeaderRow);
-
-    // Entity ID 컬럼 (고정 선두)
-    HeaderRow->AddColumn(
-        SHeaderRow::Column(TEXT("_Entity"))
-        .DefaultLabel(FText::FromString(TEXT("Entity")))
-        .FillWidth(1.2f)
-    );
-
-    // 프로퍼티 컬럼
-    for (const FString& Col : CurrentColumns)
+    // ── 상단 리스트: 엔티티 추가/삭제 시에만 갱신 ──
+    if (bEntitySetChanged)
     {
-        float Width = (Col == TEXT("Type")) ? 1.2f : 1.0f;
-        HeaderRow->AddColumn(
-            SHeaderRow::Column(FName(*Col))
-            .DefaultLabel(FText::FromString(Col))
-            .FillWidth(Width)
-        );
+        AllRows.Reset();
+        for (auto& KV : EntityRowMap)
+        {
+            AllRows.Add(KV.Value);
+        }
+        AllRows.Sort([](const TSharedPtr<FHktWorldStateEntityRow>& A,
+                        const TSharedPtr<FHktWorldStateEntityRow>& B)
+        {
+            // E_0, E_1, ... 숫자 순 정렬
+            int32 IdA = FCString::Atoi(*A->EntityKey.Mid(2));
+            int32 IdB = FCString::Atoi(*B->EntityKey.Mid(2));
+            return IdA < IdB;
+        });
+
+        RebuildFilteredRows();
+
+        // 선택 복원
+        if (!SelectedEntityKey.IsEmpty())
+        {
+            if (TSharedPtr<FHktWorldStateEntityRow>* SelRow = EntityRowMap.Find(SelectedEntityKey))
+            {
+                ListView->SetSelection(*SelRow, ESelectInfo::Direct);
+            }
+            else
+            {
+                // 선택된 엔티티가 제거됨
+                SelectedEntityKey.Empty();
+                BuildDetailPanel();
+            }
+        }
     }
 
-    GridContainer->AddSlot()
-    .FillHeight(1.0f)
-    [
-        SAssignNew(ListView, SListView<TSharedPtr<FHktWorldStateEntityRow>>)
-        .ListItemsSource(&FilteredRows)
-        .OnGenerateRow(this, &SHktWorldStatePanel::OnGenerateRow)
-        .OnSelectionChanged_Lambda([this](TSharedPtr<FHktWorldStateEntityRow> Item, ESelectInfo::Type)
-        {
-            SelectedEntity = Item;
-            UpdateDetailPanel();
-        })
-        .SelectionMode(ESelectionMode::Single)
-        .HeaderRow(HeaderRow.ToSharedRef())
-    ];
+    // ── 하단 상세: 프로퍼티 구성 변경 시에만 위젯 재구성 ──
+    AllPropertyNames = NewPropertyOrder;
+
+    if (!SelectedEntityKey.IsEmpty() && DetailBuiltProps != AllPropertyNames)
+    {
+        BuildDetailPanel();
+    }
+    // (프로퍼티 구성 동일 → 위젯 그대로, 람다가 최신 Props 읽음 → 깜빡임 없음)
 }
+
+// ============================================================================
+// Entity List (상단)
+// ============================================================================
 
 void SHktWorldStatePanel::RebuildFilteredRows()
 {
@@ -361,7 +389,7 @@ void SHktWorldStatePanel::RebuildFilteredRows()
             {
                 for (const auto& Prop : Row->Props)
                 {
-                    if (Prop.Key.Contains(FilterText) || Prop.Value.Contains(FilterText))
+                    if (Prop.Value.Contains(FilterText))
                     {
                         bMatch = true;
                         break;
@@ -375,10 +403,7 @@ void SHktWorldStatePanel::RebuildFilteredRows()
         }
     }
 
-    if (ListView.IsValid())
-    {
-        ListView->RequestListRefresh();
-    }
+    ListView->RequestListRefresh();
 }
 
 TSharedRef<ITableRow> SHktWorldStatePanel::OnGenerateRow(
@@ -435,18 +460,19 @@ TSharedRef<ITableRow> SHktWorldStatePanel::OnGenerateRow(
 }
 
 // ============================================================================
-// Detail Panel
+// Detail Panel (하단) — 위젯 1회 생성, 값만 실시간 갱신
 // ============================================================================
 
-void SHktWorldStatePanel::UpdateDetailPanel()
+void SHktWorldStatePanel::BuildDetailPanel()
 {
     DetailContainer->ClearChildren();
+    DetailBuiltProps.Reset();
 
-    if (!SelectedEntity.IsValid())
+    if (SelectedEntityKey.IsEmpty())
     {
         DetailContainer->AddSlot()
         .AutoHeight()
-        .Padding(2.f)
+        .Padding(4.f)
         [
             SNew(STextBlock)
             .Text(LOCTEXT("NoSelection", "Select an entity to view details"))
@@ -456,56 +482,91 @@ void SHktWorldStatePanel::UpdateDetailPanel()
         return;
     }
 
-    // 헤더: Entity + Type
-    FString TypeStr = TEXT("Unknown");
-    if (const FString* T = SelectedEntity->Props.Find(TEXT("Type")))
+    // 선택된 엔티티 Row 찾기 (안정적 포인터)
+    TSharedPtr<FHktWorldStateEntityRow> Entity;
+    if (TSharedPtr<FHktWorldStateEntityRow>* Found = EntityRowMap.Find(SelectedEntityKey))
     {
-        TypeStr = *T;
+        Entity = *Found;
     }
+    if (!Entity.IsValid()) return;
+
+    // 현재 프로퍼티 구성 기록
+    DetailBuiltProps = AllPropertyNames;
+
+    // ── 헤더: Entity (Type) — TAttribute 람다로 Type 실시간 반영 ──
+    TWeakPtr<FHktWorldStateEntityRow> WeakEntity = Entity;
 
     DetailContainer->AddSlot()
     .AutoHeight()
-    .Padding(2, 2, 2, 4)
+    .Padding(4, 2, 4, 4)
     [
         SNew(STextBlock)
-        .Text(FText::FromString(FString::Printf(TEXT("%s  (%s)"), *SelectedEntity->EntityKey, *TypeStr)))
-        .Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+        .Text(TAttribute<FText>::CreateLambda([WeakEntity]()
+        {
+            if (auto E = WeakEntity.Pin())
+            {
+                FString TypeStr = TEXT("?");
+                if (const FString* T = E->Props.Find(TEXT("Type"))) TypeStr = *T;
+                return FText::FromString(FString::Printf(TEXT("%s  (%s)"), *E->EntityKey, *TypeStr));
+            }
+            return FText::GetEmpty();
+        }))
+        .Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
         .ColorAndOpacity(FSlateColor(WSColors::Key))
     ];
 
-    // 프로퍼티 — 세로 나열 (스크롤 가능)
+    // ── 프로퍼티 목록 — 위젯 1회 생성, 값은 TAttribute 람다 ──
     TSharedRef<SScrollBox> PropsScroll = SNew(SScrollBox);
 
-    for (const FString& Col : CurrentColumns)
+    for (const FString& PropName : AllPropertyNames)
     {
-        if (const FString* Val = SelectedEntity->Props.Find(Col))
-        {
-            PropsScroll->AddSlot()
-            .Padding(2, 1)
+        FString CapturedProp = PropName;  // 람다 캡처용 복사
+
+        PropsScroll->AddSlot()
+        .Padding(4, 1)
+        [
+            SNew(SHorizontalBox)
+
+            // 프로퍼티 이름 (고정)
+            + SHorizontalBox::Slot()
+            .AutoWidth()
             [
-                SNew(SHorizontalBox)
-                + SHorizontalBox::Slot()
-                .AutoWidth()
-                [
-                    SNew(SBox)
-                    .MinDesiredWidth(100.f)
-                    [
-                        SNew(STextBlock)
-                        .Text(FText::FromString(Col))
-                        .Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-                        .ColorAndOpacity(FSlateColor(WSColors::FieldName))
-                    ]
-                ]
-                + SHorizontalBox::Slot()
-                .AutoWidth()
+                SNew(SBox)
+                .MinDesiredWidth(120.f)
                 [
                     SNew(STextBlock)
-                    .Text(FText::FromString(*Val))
-                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-                    .ColorAndOpacity(GetPropColor(Col, *Val))
+                    .Text(FText::FromString(PropName))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+                    .ColorAndOpacity(FSlateColor(WSColors::FieldName))
                 ]
-            ];
-        }
+            ]
+
+            // 프로퍼티 값 (TAttribute 람다 — Props 변경 시 자동 반영)
+            + SHorizontalBox::Slot()
+            .FillWidth(1.0f)
+            [
+                SNew(STextBlock)
+                .Text(TAttribute<FText>::CreateLambda([WeakEntity, CapturedProp]()
+                {
+                    if (auto E = WeakEntity.Pin())
+                    {
+                        if (const FString* V = E->Props.Find(CapturedProp))
+                            return FText::FromString(*V);
+                    }
+                    return FText::FromString(TEXT("-"));
+                }))
+                .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+                .ColorAndOpacity(TAttribute<FSlateColor>::CreateLambda([WeakEntity, CapturedProp]()
+                {
+                    if (auto E = WeakEntity.Pin())
+                    {
+                        if (const FString* V = E->Props.Find(CapturedProp))
+                            return GetPropColor(CapturedProp, *V);
+                    }
+                    return FSlateColor(WSColors::Dim);
+                }))
+            ]
+        ];
     }
 
     DetailContainer->AddSlot()

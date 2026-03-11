@@ -8,23 +8,19 @@
 #include "Widgets/Views/SHeaderRow.h"
 
 /**
- * FHktWorldStateEntityRow - 엔티티 행 데이터
- * EntityKey + 프로퍼티 맵 (컬럼명 → 값)
+ * FHktWorldStateEntityRow - 엔티티 행 데이터 (안정적 포인터, Props만 in-place 갱신)
  */
 struct FHktWorldStateEntityRow
 {
     FString EntityKey;                   // "E_0", "E_1", ...
-    TMap<FString, FString> Props;        // PropertyName → Value
+    TMap<FString, FString> Props;        // PropertyName → Value (매 틱 갱신)
 };
 
 /**
  * SHktWorldStatePanel
  *
- * "WorldState.*" 카테고리 데이터를 스프레드시트 형태로 표시.
- * - 가로축: 엔티티 (행), 세로축: 프로퍼티 (컬럼)
- * - 소스 선택 콤보박스 (Server/Client)
- * - 엔티티 필터링 및 선택 기능
- * - 선택된 엔티티 상세 정보 패널
+ * 상단: 엔티티 목록 (Entity/Type/Owner 고정 컬럼) — 추가/삭제 시에만 테이블 변경
+ * 하단: 선택 엔티티 상세 — 위젯 1회 생성, TAttribute 람다로 값만 실시간 갱신
  */
 class HKTINSIGHTS_API SHktWorldStatePanel : public SCompoundWidget
 {
@@ -37,9 +33,8 @@ public:
 private:
     void RefreshData();
     void RebuildSourceOptions();
-    void RebuildGrid();
     void RebuildFilteredRows();
-    void UpdateDetailPanel();
+    void BuildDetailPanel();
 
     TSharedRef<ITableRow> OnGenerateRow(
         TSharedPtr<FHktWorldStateEntityRow> Item,
@@ -53,19 +48,18 @@ private:
     TSharedPtr<STextBlock> FrameText;
     TSharedPtr<STextBlock> EntityCountText;
 
-    // 엔티티 그리드
-    TArray<FString> CurrentColumns;    // 프로퍼티 컬럼 이름 (순서 보존)
-    TSharedPtr<SHeaderRow> HeaderRow;
+    // 상단: 엔티티 목록
     TSharedPtr<SListView<TSharedPtr<FHktWorldStateEntityRow>>> ListView;
-    TSharedPtr<SVerticalBox> GridContainer;
-
     TArray<TSharedPtr<FHktWorldStateEntityRow>> AllRows;
     TArray<TSharedPtr<FHktWorldStateEntityRow>> FilteredRows;
+    TMap<FString, TSharedPtr<FHktWorldStateEntityRow>> EntityRowMap;  // 안정적 포인터 유지
     FString FilterText;
 
-    // 선택 & 상세
-    TSharedPtr<FHktWorldStateEntityRow> SelectedEntity;
+    // 하단: 선택 상세
+    FString SelectedEntityKey;
     TSharedPtr<SVerticalBox> DetailContainer;
+    TArray<FString> AllPropertyNames;    // 전체 프로퍼티 목록
+    TArray<FString> DetailBuiltProps;    // 현재 상세 패널에 구성된 프로퍼티
 
     uint32 CachedVersion = 0;
 };
