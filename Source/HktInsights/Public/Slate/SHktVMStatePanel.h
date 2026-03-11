@@ -12,6 +12,7 @@ class SHktInsightTable;
  *
  * "VM" 카테고리 데이터를 테이블로 표시.
  * VM 생성/틱/완료 및 Intent 상태를 Key-Value 형태로 보여줌.
+ * FHktCoreDataCollector Version을 직접 폴링하여 실시간 갱신.
  */
 class HKTINSIGHTS_API SHktVMStatePanel : public SCompoundWidget
 {
@@ -25,5 +26,5 @@ private:
     void RefreshData();
 
     TSharedPtr<SHktInsightTable> Table;
-    FDelegateHandle DataChangedHandle;
+    uint32 CachedVersion = 0;
 };

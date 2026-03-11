@@ -3,10 +3,7 @@
 #include "Slate/SHktRuntimeInsightsPanel.h"
 #include "Slate/SHktInsightTable.h"
 #include "HktCoreDataCollector.h"
-#include "HktInsightsSubsystem.h"
 #include "Widgets/Text/STextBlock.h"
-#include "Engine/World.h"
-#include "Engine/Engine.h"
 
 #define LOCTEXT_NAMESPACE "HktRuntimeInsightsPanel"
 
@@ -30,33 +27,21 @@ void SHktRuntimeInsightsPanel::Construct(const FArguments& InArgs)
         ]
     ];
 
+    CachedVersion = FHktCoreDataCollector::Get().GetVersion();
     RebuildTables();
     RefreshData();
 
-    // 폴링: 서브시스템 바인딩 + 카테고리 변경 감지
-    RegisterActiveTimer(0.5f, FWidgetActiveTimerDelegate::CreateLambda(
+    // 0.1초 간격으로 Version 직접 폴링 — 서브시스템 의존 없음
+    RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateLambda(
         [this](double, float) -> EActiveTimerReturnType
         {
-            if (!DataChangedHandle.IsValid())
+            const uint32 CurrentVersion = FHktCoreDataCollector::Get().GetVersion();
+            if (CurrentVersion != CachedVersion)
             {
-                if (GEngine)
-                {
-                    for (const FWorldContext& Ctx : GEngine->GetWorldContexts())
-                    {
-                        if (UWorld* World = Ctx.World())
-                        {
-                            if (UHktInsightsWorldSubsystem* Sub = World->GetSubsystem<UHktInsightsWorldSubsystem>())
-                            {
-                                DataChangedHandle = Sub->OnDataChanged.AddSP(this, &SHktRuntimeInsightsPanel::RefreshData);
-                                break;
-                            }
-                        }
-                    }
-                }
+                CachedVersion = CurrentVersion;
+                RebuildTables();
+                RefreshData();
             }
-
-            // 카테고리 변경 시 테이블 재구성
-            RebuildTables();
             return EActiveTimerReturnType::Continue;
         }));
 }
@@ -111,8 +96,6 @@ void SHktRuntimeInsightsPanel::RebuildTables()
 
 void SHktRuntimeInsightsPanel::RefreshData()
 {
-    RebuildTables();
-
     for (FRuntimeTab& Tab : Tabs)
     {
         TArray<TPair<FString, FString>> Entries = FHktCoreDataCollector::Get().GetEntries(Tab.Category);

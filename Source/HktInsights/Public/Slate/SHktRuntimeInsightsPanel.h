@@ -13,6 +13,7 @@ class SHktInsightTable;
  * "Runtime.*" 카테고리 데이터를 탭 형태로 표시.
  * Runtime.Server / Runtime.Client / Runtime.ProxySimulator 등
  * 카테고리별 SHktInsightTable을 탭으로 나열.
+ * FHktCoreDataCollector Version을 직접 폴링하여 실시간 갱신.
  */
 class HKTINSIGHTS_API SHktRuntimeInsightsPanel : public SCompoundWidget
 {
@@ -35,5 +36,5 @@ private:
     TArray<FRuntimeTab> Tabs;
 
     TSharedPtr<SVerticalBox> TabContainer;
-    FDelegateHandle DataChangedHandle;
+    uint32 CachedVersion = 0;
 };

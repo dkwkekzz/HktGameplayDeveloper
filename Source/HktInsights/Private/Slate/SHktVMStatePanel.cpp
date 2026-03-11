@@ -3,9 +3,6 @@
 #include "Slate/SHktVMStatePanel.h"
 #include "Slate/SHktInsightTable.h"
 #include "HktCoreDataCollector.h"
-#include "HktInsightsSubsystem.h"
-#include "Engine/World.h"
-#include "Engine/Engine.h"
 
 #define LOCTEXT_NAMESPACE "HktVMStatePanel"
 
@@ -17,28 +14,18 @@ void SHktVMStatePanel::Construct(const FArguments& InArgs)
         .Title(LOCTEXT("VMStateTitle", "VM State"))
     ];
 
+    CachedVersion = FHktCoreDataCollector::Get().GetVersion();
     RefreshData();
 
-    // 폴링: 서브시스템 바인딩 시도 + 폴백 갱신
-    RegisterActiveTimer(0.5f, FWidgetActiveTimerDelegate::CreateLambda(
+    // 0.1초 간격으로 Version 직접 폴링 — 서브시스템 의존 없음
+    RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateLambda(
         [this](double, float) -> EActiveTimerReturnType
         {
-            if (!DataChangedHandle.IsValid())
+            const uint32 CurrentVersion = FHktCoreDataCollector::Get().GetVersion();
+            if (CurrentVersion != CachedVersion)
             {
-                if (GEngine)
-                {
-                    for (const FWorldContext& Ctx : GEngine->GetWorldContexts())
-                    {
-                        if (UWorld* World = Ctx.World())
-                        {
-                            if (UHktInsightsWorldSubsystem* Sub = World->GetSubsystem<UHktInsightsWorldSubsystem>())
-                            {
-                                DataChangedHandle = Sub->OnDataChanged.AddSP(this, &SHktVMStatePanel::RefreshData);
-                                break;
-                            }
-                        }
-                    }
-                }
+                CachedVersion = CurrentVersion;
+                RefreshData();
             }
             return EActiveTimerReturnType::Continue;
         }));
