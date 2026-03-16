@@ -19,7 +19,7 @@ struct FHktWorldStateEntityRow
 /**
  * SHktWorldStatePanel
  *
- * 상단: 엔티티 목록 (Entity/Type/Owner 고정 컬럼) — 추가/삭제 시에만 테이블 변경
+ * 상단: 엔티티 목록 (Entity/Owner 고정 컬럼) — 추가/삭제 시에만 테이블 변경
  * 하단: 선택 엔티티 상세 — 위젯 1회 생성, TAttribute 람다로 값만 실시간 갱신
  */
 class HKTINSIGHTS_API SHktWorldStatePanel : public SCompoundWidget
@@ -59,7 +59,6 @@ private:
     FString SelectedEntityKey;
     TSharedPtr<SVerticalBox> DetailContainer;
     TArray<FString> AllPropertyNames;    // 전체 프로퍼티 목록
-    TArray<FString> DetailBuiltProps;    // 현재 상세 패널에 구성된 프로퍼티
 
     uint32 CachedVersion = 0;
 };
