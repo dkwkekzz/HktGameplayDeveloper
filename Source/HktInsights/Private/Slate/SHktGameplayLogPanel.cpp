@@ -81,7 +81,6 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
             .Padding(0, 0, 8, 0)
             [
                 SNew(SButton)
-                .Text(LOCTEXT("ClearBtn", "Clear"))
                 .OnClicked_Lambda([this]() -> FReply
                 {
                     FHktCoreEventLog::Get().Clear();
@@ -91,6 +90,7 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
                     ListView->RequestListRefresh();
                     return FReply::Handled();
                 })
+                [ SNew(STextBlock).Text(LOCTEXT("ClearBtn", "Clear")) ]
             ]
 
             // AutoScroll 토글
@@ -389,7 +389,6 @@ void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
         .Padding(0, 0, 4, 0)
         [
             SNew(SButton)
-            .Text(LOCTEXT("AllBtn", "All"))
             .OnClicked_Lambda([this]() -> FReply
             {
                 EnabledCategories = KnownCategories;
@@ -397,12 +396,12 @@ void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
                 RebuildFilteredRows();
                 return FReply::Handled();
             })
+            [ SNew(STextBlock).Text(LOCTEXT("AllBtn", "All")) ]
         ]
         + SHorizontalBox::Slot()
         .AutoWidth()
         [
             SNew(SButton)
-            .Text(LOCTEXT("NoneBtn", "None"))
             .OnClicked_Lambda([this]() -> FReply
             {
                 EnabledCategories.Empty();
@@ -410,6 +409,7 @@ void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
                 RebuildFilteredRows();
                 return FReply::Handled();
             })
+            [ SNew(STextBlock).Text(LOCTEXT("NoneBtn", "None")) ]
         ]
     ];
 
