@@ -12,6 +12,7 @@
 #include "Slate/SHktWorldStatePanel.h"
 #include "Slate/SHktVMStatePanel.h"
 #include "Slate/SHktRuntimeInsightsPanel.h"
+#include "Slate/SHktGameplayLogPanel.h"
 
 #define LOCTEXT_NAMESPACE "HktInsightsEditor"
 
@@ -20,6 +21,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogHktInsightsEditor, Log, All);
 static const FName HktVMStateTabName(TEXT("HktVMStateTab"));
 static const FName HktRuntimeInsightsTabName(TEXT("HktRuntimeInsightsTab"));
 static const FName HktWorldStateTabName(TEXT("HktWorldStateTab"));
+static const FName HktGameplayLogTabName(TEXT("HktGameplayLogTab"));
 
 /**
  * HktInsightsEditor 모듈 — 에디터 탭 등록 및 메뉴 통합
@@ -34,6 +36,7 @@ private:
     TSharedRef<SDockTab> SpawnVMStateTab(const FSpawnTabArgs& Args);
     TSharedRef<SDockTab> SpawnRuntimeTab(const FSpawnTabArgs& Args);
     TSharedRef<SDockTab> SpawnWorldStateTab(const FSpawnTabArgs& Args);
+    TSharedRef<SDockTab> SpawnGameplayLogTab(const FSpawnTabArgs& Args);
 
     void RegisterMenuExtensions();
     void UnregisterMenuExtensions();
@@ -74,6 +77,15 @@ void FHktInsightsEditorModule::StartupModule()
         .SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsDebugCategory())
         .SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "Debug"));
 
+    // Gameplay Log 탭
+    FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
+        HktGameplayLogTabName,
+        FOnSpawnTab::CreateRaw(this, &FHktInsightsEditorModule::SpawnGameplayLogTab))
+        .SetDisplayName(LOCTEXT("GameplayLogTabTitle", "HKT Gameplay Log"))
+        .SetTooltipText(LOCTEXT("GameplayLogTabTooltip", "Chronological gameplay event log with entity filtering"))
+        .SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsDebugCategory())
+        .SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "Debug"));
+
     bTabSpawnerRegistered = true;
 
     RegisterMenuExtensions();
@@ -92,6 +104,7 @@ void FHktInsightsEditorModule::ShutdownModule()
         FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(HktVMStateTabName);
         FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(HktRuntimeInsightsTabName);
         FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(HktWorldStateTabName);
+        FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(HktGameplayLogTabName);
         bTabSpawnerRegistered = false;
     }
 
@@ -125,6 +138,16 @@ TSharedRef<SDockTab> FHktInsightsEditorModule::SpawnWorldStateTab(const FSpawnTa
         .Label(LOCTEXT("WorldStateTabLabel", "HKT World State"))
         [
             SNew(SHktWorldStatePanel)
+        ];
+}
+
+TSharedRef<SDockTab> FHktInsightsEditorModule::SpawnGameplayLogTab(const FSpawnTabArgs& Args)
+{
+    return SNew(SDockTab)
+        .TabRole(ETabRole::NomadTab)
+        .Label(LOCTEXT("GameplayLogTabLabel", "HKT Gameplay Log"))
+        [
+            SNew(SHktGameplayLogPanel)
         ];
 }
 
@@ -163,6 +186,15 @@ void FHktInsightsEditorModule::RegisterMenuExtensions()
                 {
                     FGlobalTabmanager::Get()->TryInvokeTab(HktWorldStateTabName);
                 })));
+
+            Section.AddMenuEntry("HktGameplayLog",
+                LOCTEXT("GameplayLogMenu", "HKT Gameplay Log"),
+                LOCTEXT("GameplayLogMenuTooltip", "Open chronological gameplay event log"),
+                FSlateIcon(FAppStyle::GetAppStyleSetName(), "Debug"),
+                FUIAction(FExecuteAction::CreateLambda([]()
+                {
+                    FGlobalTabmanager::Get()->TryInvokeTab(HktGameplayLogTabName);
+                })));
         }
 
         // Tools 메뉴에도 추가
@@ -196,6 +228,15 @@ void FHktInsightsEditorModule::RegisterMenuExtensions()
                 FUIAction(FExecuteAction::CreateLambda([]()
                 {
                     FGlobalTabmanager::Get()->TryInvokeTab(HktWorldStateTabName);
+                })));
+
+            Section.AddMenuEntry("HktGameplayLogTools",
+                LOCTEXT("GameplayLogToolsMenu", "HKT Gameplay Log"),
+                LOCTEXT("GameplayLogToolsTooltip", "Open chronological gameplay event log"),
+                FSlateIcon(FAppStyle::GetAppStyleSetName(), "Debug"),
+                FUIAction(FExecuteAction::CreateLambda([]()
+                {
+                    FGlobalTabmanager::Get()->TryInvokeTab(HktGameplayLogTabName);
                 })));
         }
     }));
