@@ -24,12 +24,16 @@ namespace LogColors
     // 카테고리별 색상
     static const FLinearColor CatCoreEntity(0.3f, 0.9f, 0.5f);
     static const FLinearColor CatCoreVM(0.9f, 0.7f, 0.3f);
-    static const FLinearColor CatCoreSim(0.3f, 0.7f, 0.9f);
     static const FLinearColor CatCoreStory(0.8f, 0.5f, 0.9f);
     static const FLinearColor CatRuntimeServer(1.0f, 0.5f, 0.3f);
     static const FLinearColor CatRuntimeClient(0.3f, 0.8f, 0.8f);
     static const FLinearColor CatRuntimeIntent(0.9f, 0.9f, 0.3f);
     static const FLinearColor CatPresentation(0.6f, 0.8f, 0.4f);
+    static const FLinearColor CatAsset(0.3f, 0.7f, 0.9f);
+    static const FLinearColor CatRule(0.9f, 0.4f, 0.6f);
+    static const FLinearColor CatStory(0.7f, 0.5f, 1.0f);
+    static const FLinearColor CatUI(0.95f, 0.75f, 0.5f);
+    static const FLinearColor CatVFX(0.5f, 0.95f, 0.9f);
     static const FLinearColor CatDefault(0.7f, 0.7f, 0.7f);
 }
 
@@ -86,7 +90,10 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
                     FHktCoreEventLog::Get().Clear();
                     AllRows.Reset();
                     FilteredRows.Reset();
+                    KnownCategories.Reset();
+                    EnabledCategories.Reset();
                     ReadIndex = 0;
+                    RebuildCategoryCheckboxes();
                     ListView->RequestListRefresh();
                     return FReply::Handled();
                 })
@@ -271,10 +278,10 @@ void SHktGameplayLogPanel::PollNewEntries()
         TSharedPtr<FHktLogEntry> SharedEntry = MakeShared<FHktLogEntry>(MoveTemp(Entry));
 
         // 새 카테고리 발견 시 활성화
-        if (!KnownCategories.Contains(SharedEntry->Category))
+        if (!KnownCategories.HasTagExact(SharedEntry->Category))
         {
-            KnownCategories.Add(SharedEntry->Category);
-            EnabledCategories.Add(SharedEntry->Category);
+            KnownCategories.AddTag(SharedEntry->Category);
+            EnabledCategories.AddTag(SharedEntry->Category);
             bNewCategory = true;
         }
 
@@ -317,8 +324,8 @@ void SHktGameplayLogPanel::PollNewEntries()
 
 bool SHktGameplayLogPanel::PassesFilter(const FHktLogEntry& Entry) const
 {
-    // 카테고리 필터
-    if (!EnabledCategories.Contains(Entry.Category))
+    // 카테고리 필터: HasTag()는 계층적 매칭 (부모 태그 활성화 시 자식도 통과)
+    if (!EnabledCategories.HasTagExact(Entry.Category))
     {
         return false;
     }
@@ -335,8 +342,9 @@ bool SHktGameplayLogPanel::PassesFilter(const FHktLogEntry& Entry) const
     // 텍스트 검색
     if (!FilterText.IsEmpty())
     {
+        const FString CategoryDisplay = GetCategoryDisplayName(Entry.Category);
         if (!Entry.Message.Contains(FilterText) &&
-            !Entry.Category.Contains(FilterText) &&
+            !CategoryDisplay.Contains(FilterText) &&
             !Entry.EventTag.ToString().Contains(FilterText))
         {
             return false;
@@ -404,7 +412,7 @@ void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
             SNew(SButton)
             .OnClicked_Lambda([this]() -> FReply
             {
-                EnabledCategories.Empty();
+                EnabledCategories.Reset();
                 RebuildCategoryCheckboxes();
                 RebuildFilteredRows();
                 return FReply::Handled();
@@ -413,39 +421,45 @@ void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
         ]
     ];
 
-    // 카테고리별 체크박스
-    TArray<FString> SortedCategories = KnownCategories.Array();
-    SortedCategories.Sort();
-
-    for (const FString& Cat : SortedCategories)
+    // 카테고리별 체크박스 (정렬)
+    TArray<FGameplayTag> Tags;
+    KnownCategories.GetGameplayTagArray(Tags);
+    Tags.Sort([](const FGameplayTag& A, const FGameplayTag& B)
     {
-        FString CapturedCat = Cat;
+        return A.GetTagName().LexicalLess(B.GetTagName());
+    });
+
+    for (const FGameplayTag& CatTag : Tags)
+    {
+        FGameplayTag CapturedTag = CatTag;
+        FString DisplayName = GetCategoryDisplayName(CatTag);
+
         CategoryContainer->AddSlot()
         .AutoHeight()
         .Padding(4, 1)
         [
             SNew(SCheckBox)
-            .IsChecked_Lambda([this, CapturedCat]() -> ECheckBoxState
+            .IsChecked_Lambda([this, CapturedTag]() -> ECheckBoxState
             {
-                return EnabledCategories.Contains(CapturedCat) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+                return EnabledCategories.HasTagExact(CapturedTag) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
             })
-            .OnCheckStateChanged_Lambda([this, CapturedCat](ECheckBoxState NewState)
+            .OnCheckStateChanged_Lambda([this, CapturedTag](ECheckBoxState NewState)
             {
                 if (NewState == ECheckBoxState::Checked)
                 {
-                    EnabledCategories.Add(CapturedCat);
+                    EnabledCategories.AddTag(CapturedTag);
                 }
                 else
                 {
-                    EnabledCategories.Remove(CapturedCat);
+                    EnabledCategories.RemoveTag(CapturedTag);
                 }
                 RebuildFilteredRows();
             })
             [
                 SNew(STextBlock)
-                .Text(FText::FromString(CapturedCat))
+                .Text(FText::FromString(DisplayName))
                 .Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-                .ColorAndOpacity(GetCategoryColor(CapturedCat))
+                .ColorAndOpacity(GetCategoryColor(CapturedTag))
             ]
         ];
     }
@@ -500,8 +514,9 @@ TSharedRef<ITableRow> SHktGameplayLogPanel::OnGenerateRow(
 
             if (ColStr == TEXT("Category"))
             {
+                FString DisplayName = SHktGameplayLogPanel::GetCategoryDisplayName(Item->Category);
                 return SNew(STextBlock)
-                    .Text(FText::FromString(Item->Category))
+                    .Text(FText::FromString(DisplayName))
                     .Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
                     .ColorAndOpacity(SHktGameplayLogPanel::GetCategoryColor(Item->Category))
                     .Margin(FMargin(2, 1));
@@ -545,20 +560,39 @@ TSharedRef<ITableRow> SHktGameplayLogPanel::OnGenerateRow(
 }
 
 // ============================================================================
-// 카테고리 색상
+// 카테고리 색상 — MatchesTag()로 계층적 매칭
 // ============================================================================
 
-FSlateColor SHktGameplayLogPanel::GetCategoryColor(const FString& Category)
+FSlateColor SHktGameplayLogPanel::GetCategoryColor(const FGameplayTag& Category)
 {
-    if (Category.StartsWith(TEXT("Core.Entity")))      return FSlateColor(LogColors::CatCoreEntity);
-    if (Category.StartsWith(TEXT("Core.VM")))           return FSlateColor(LogColors::CatCoreVM);
-    if (Category.StartsWith(TEXT("Core.Simulation")))   return FSlateColor(LogColors::CatCoreSim);
-    if (Category.StartsWith(TEXT("Core.Story")))        return FSlateColor(LogColors::CatCoreStory);
-    if (Category.StartsWith(TEXT("Runtime.Server")))    return FSlateColor(LogColors::CatRuntimeServer);
-    if (Category.StartsWith(TEXT("Runtime.Client")))    return FSlateColor(LogColors::CatRuntimeClient);
-    if (Category.StartsWith(TEXT("Runtime.Intent")))    return FSlateColor(LogColors::CatRuntimeIntent);
-    if (Category.StartsWith(TEXT("Presentation")))      return FSlateColor(LogColors::CatPresentation);
+    if (Category.MatchesTag(HktLogTags::Core_Entity))       return FSlateColor(LogColors::CatCoreEntity);
+    if (Category.MatchesTag(HktLogTags::Core_VM))           return FSlateColor(LogColors::CatCoreVM);
+    if (Category.MatchesTag(HktLogTags::Core_Story))        return FSlateColor(LogColors::CatCoreStory);
+    if (Category.MatchesTag(HktLogTags::Runtime_Server))    return FSlateColor(LogColors::CatRuntimeServer);
+    if (Category.MatchesTag(HktLogTags::Runtime_Client))    return FSlateColor(LogColors::CatRuntimeClient);
+    if (Category.MatchesTag(HktLogTags::Runtime_Intent))    return FSlateColor(LogColors::CatRuntimeIntent);
+    if (Category.MatchesTag(HktLogTags::Presentation))      return FSlateColor(LogColors::CatPresentation);
+    if (Category.MatchesTag(HktLogTags::Asset))             return FSlateColor(LogColors::CatAsset);
+    if (Category.MatchesTag(HktLogTags::Rule))              return FSlateColor(LogColors::CatRule);
+    if (Category.MatchesTag(HktLogTags::Story))             return FSlateColor(LogColors::CatStory);
+    if (Category.MatchesTag(HktLogTags::UI))                return FSlateColor(LogColors::CatUI);
+    if (Category.MatchesTag(HktLogTags::VFX))               return FSlateColor(LogColors::CatVFX);
     return FSlateColor(LogColors::CatDefault);
+}
+
+// ============================================================================
+// 표시명: "HktLog." 접두사 제거
+// ============================================================================
+
+FString SHktGameplayLogPanel::GetCategoryDisplayName(const FGameplayTag& Category)
+{
+    static const FString Prefix = TEXT("HktLog.");
+    FString TagStr = Category.ToString();
+    if (TagStr.StartsWith(Prefix))
+    {
+        TagStr.RightChopInline(Prefix.Len());
+    }
+    return TagStr;
 }
 
 #undef LOCTEXT_NAMESPACE
