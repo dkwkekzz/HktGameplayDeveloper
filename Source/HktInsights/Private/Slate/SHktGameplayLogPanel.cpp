@@ -24,12 +24,16 @@ namespace LogColors
     // 카테고리별 색상
     static const FLinearColor CatCoreEntity(0.3f, 0.9f, 0.5f);
     static const FLinearColor CatCoreVM(0.9f, 0.7f, 0.3f);
-    static const FLinearColor CatCoreSim(0.3f, 0.7f, 0.9f);
     static const FLinearColor CatCoreStory(0.8f, 0.5f, 0.9f);
     static const FLinearColor CatRuntimeServer(1.0f, 0.5f, 0.3f);
     static const FLinearColor CatRuntimeClient(0.3f, 0.8f, 0.8f);
     static const FLinearColor CatRuntimeIntent(0.9f, 0.9f, 0.3f);
     static const FLinearColor CatPresentation(0.6f, 0.8f, 0.4f);
+    static const FLinearColor CatAsset(0.3f, 0.7f, 0.9f);
+    static const FLinearColor CatRule(0.9f, 0.4f, 0.6f);
+    static const FLinearColor CatStory(0.7f, 0.5f, 1.0f);
+    static const FLinearColor CatUI(0.95f, 0.75f, 0.5f);
+    static const FLinearColor CatVFX(0.5f, 0.95f, 0.9f);
     static const FLinearColor CatDefault(0.7f, 0.7f, 0.7f);
 }
 
@@ -86,7 +90,10 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
                     FHktCoreEventLog::Get().Clear();
                     AllRows.Reset();
                     FilteredRows.Reset();
+                    KnownCategories.Reset();
+                    EnabledCategories.Reset();
                     ReadIndex = 0;
+                    RebuildCategoryCheckboxes();
                     ListView->RequestListRefresh();
                     return FReply::Handled();
                 })
@@ -565,6 +572,11 @@ FSlateColor SHktGameplayLogPanel::GetCategoryColor(const FGameplayTag& Category)
     if (Category.MatchesTag(HktLogTags::Runtime_Client))    return FSlateColor(LogColors::CatRuntimeClient);
     if (Category.MatchesTag(HktLogTags::Runtime_Intent))    return FSlateColor(LogColors::CatRuntimeIntent);
     if (Category.MatchesTag(HktLogTags::Presentation))      return FSlateColor(LogColors::CatPresentation);
+    if (Category.MatchesTag(HktLogTags::Asset))             return FSlateColor(LogColors::CatAsset);
+    if (Category.MatchesTag(HktLogTags::Rule))              return FSlateColor(LogColors::CatRule);
+    if (Category.MatchesTag(HktLogTags::Story))             return FSlateColor(LogColors::CatStory);
+    if (Category.MatchesTag(HktLogTags::UI))                return FSlateColor(LogColors::CatUI);
+    if (Category.MatchesTag(HktLogTags::VFX))               return FSlateColor(LogColors::CatVFX);
     return FSlateColor(LogColors::CatDefault);
 }
 
