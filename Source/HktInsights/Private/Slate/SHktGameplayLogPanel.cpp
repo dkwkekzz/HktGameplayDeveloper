@@ -100,6 +100,30 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
                 [ SNew(STextBlock).Text(LOCTEXT("ClearBtn", "Clear")) ]
             ]
 
+            // Dump to File 버튼
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 8, 0)
+            [
+                SNew(SButton)
+                .OnClicked_Lambda([this]() -> FReply
+                {
+                    const FString Path = FHktCoreEventLog::Get().DumpToFile();
+                    if (!Path.IsEmpty())
+                    {
+                        LogCountText->SetText(FText::FromString(
+                            FString::Printf(TEXT("Dumped %d entries -> %s"), AllRows.Num(), *Path)));
+                    }
+                    else
+                    {
+                        LogCountText->SetText(LOCTEXT("DumpFailed", "Dump failed: no entries or write error"));
+                    }
+                    return FReply::Handled();
+                })
+                [ SNew(STextBlock).Text(LOCTEXT("DumpBtn", "Dump to File")) ]
+            ]
+
             // AutoScroll 토글
             + SHorizontalBox::Slot()
             .AutoWidth()
