@@ -16,6 +16,7 @@ public class HktInsights : ModuleRules
             "Slate",
             "SlateCore",
             "InputCore",
+			"GameplayTags",
             "HktCore"
         });
 
