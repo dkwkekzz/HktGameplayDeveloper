@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/SListView.h"
+#include "GameplayTagContainer.h"
 
 struct FHktLogEntry;
 
@@ -15,7 +16,8 @@ struct FHktLogEntry;
  * FHktCoreEventLog 싱글톤을 통해 링 버퍼에서 이벤트를 읽어 표시.
  *
  * - 패널 열림/닫힘에 따라 로그 수집 자동 활성화/비활성화
- * - Category, EntityId, EventTag, 텍스트 필터 지원
+ * - Category(FGameplayTag) 계층적 필터링: MatchesTag()로 상위 태그 선택 시 하위 포함
+ * - EntityId, EventTag, 텍스트 필터 지원
  * - 자동 스크롤 (하단 고정)
  */
 class HKTINSIGHTS_API SHktGameplayLogPanel : public SCompoundWidget
@@ -45,7 +47,10 @@ private:
                                          const TSharedRef<STableViewBase>& OwnerTable);
 
     /** 카테고리별 색상 */
-    static FSlateColor GetCategoryColor(const FString& Category);
+    static FSlateColor GetCategoryColor(const FGameplayTag& Category);
+
+    /** FGameplayTag에서 "HktLog." 접두사 제거 후 표시용 문자열 반환 */
+    static FString GetCategoryDisplayName(const FGameplayTag& Category);
 
     // ── 데이터 ──
 
@@ -66,10 +71,10 @@ private:
 
     // ── 필터 상태 ──
     FString FilterText;
-    FString EntityIdFilterText;       // 쉼표 구분 엔티티 ID
-    TSet<int32> EntityIdFilter;       // 파싱된 엔티티 ID 셋
-    TSet<FString> EnabledCategories;  // 활성화된 카테고리
-    TSet<FString> KnownCategories;    // 지금까지 본 카테고리
+    FString EntityIdFilterText;             // 쉼표 구분 엔티티 ID
+    TSet<int32> EntityIdFilter;             // 파싱된 엔티티 ID 셋
+    FGameplayTagContainer EnabledCategories;  // 활성화된 카테고리 태그
+    FGameplayTagContainer KnownCategories;    // 지금까지 본 카테고리 태그
 
     // ── 폴링 상태 ──
     uint32 ReadIndex = 0;
