@@ -93,7 +93,7 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
                     KnownCategories.Reset();
                     EnabledCategories.Reset();
                     ReadIndex = 0;
-                    RebuildCategoryCheckboxes();
+                    RebuildCategoryTree();
                     ListView->RequestListRefresh();
                     return FReply::Handled();
                 })
@@ -215,15 +215,11 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
             SNew(SSplitter)
             .Orientation(Orient_Horizontal)
 
-            // 카테고리 사이드바
+            // 카테고리 사이드바 (트리뷰)
             + SSplitter::Slot()
             .Value(0.15f)
             [
-                SNew(SScrollBox)
-                + SScrollBox::Slot()
-                [
-                    SAssignNew(CategoryContainer, SVerticalBox)
-                ]
+                SAssignNew(CategoryContainer, SVerticalBox)
             ]
 
             // 로그 리스트
@@ -328,7 +324,7 @@ void SHktGameplayLogPanel::PollNewEntries()
 
     if (bNewCategory)
     {
-        RebuildCategoryCheckboxes();
+        RebuildCategoryTree();
     }
 
     LogCountText->SetText(FText::FromString(
@@ -348,7 +344,7 @@ void SHktGameplayLogPanel::PollNewEntries()
 
 bool SHktGameplayLogPanel::PassesFilter(const FHktLogEntry& Entry) const
 {
-    // 카테고리 필터: HasTag()는 계층적 매칭 (부모 태그 활성화 시 자식도 통과)
+    // 카테고리 필터: HasTagExact()로 리프 태그 기반 매칭 (트리뷰에서 계층 토글)
     if (!EnabledCategories.HasTagExact(Entry.Category))
     {
         return false;
@@ -395,8 +391,68 @@ void SHktGameplayLogPanel::RebuildFilteredRows()
     ListView->RequestListRefresh();
 }
 
-void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
+void SHktGameplayLogPanel::RebuildCategoryTree()
 {
+    // ── 태그를 계층 구조로 파싱하여 트리 노드 구축 ──
+    CategoryRootNodes.Reset();
+
+    TArray<FGameplayTag> Tags;
+    KnownCategories.GetGameplayTagArray(Tags);
+    Tags.Sort([](const FGameplayTag& A, const FGameplayTag& B)
+    {
+        return A.GetTagName().LexicalLess(B.GetTagName());
+    });
+
+    // "HktLog." 접두사 제거 후 dot 기준으로 트리 구축
+    static const FString Prefix = TEXT("HktLog.");
+
+    for (const FGameplayTag& CatTag : Tags)
+    {
+        FString TagStr = CatTag.ToString();
+        FString DisplayPath = TagStr;
+        if (DisplayPath.StartsWith(Prefix))
+        {
+            DisplayPath.RightChopInline(Prefix.Len());
+        }
+
+        TArray<FString> Segments;
+        DisplayPath.ParseIntoArray(Segments, TEXT("."), true);
+
+        // 현재 레벨의 노드 리스트에서 탐색하며 트리를 빌드
+        TArray<TSharedPtr<FCategoryTreeNode>>* CurrentLevel = &CategoryRootNodes;
+        for (int32 i = 0; i < Segments.Num(); ++i)
+        {
+            const FString& Seg = Segments[i];
+            const bool bIsLeaf = (i == Segments.Num() - 1);
+
+            // 이미 존재하는 노드 찾기
+            TSharedPtr<FCategoryTreeNode>* Found = CurrentLevel->FindByPredicate(
+                [&Seg](const TSharedPtr<FCategoryTreeNode>& N) { return N->DisplayName == Seg; });
+
+            if (Found)
+            {
+                // 리프에 도달하면 태그 할당
+                if (bIsLeaf)
+                {
+                    (*Found)->Tag = CatTag;
+                }
+                CurrentLevel = &(*Found)->Children;
+            }
+            else
+            {
+                TSharedPtr<FCategoryTreeNode> NewNode = MakeShared<FCategoryTreeNode>();
+                NewNode->DisplayName = Seg;
+                if (bIsLeaf)
+                {
+                    NewNode->Tag = CatTag;
+                }
+                CurrentLevel->Add(NewNode);
+                CurrentLevel = &NewNode->Children;
+            }
+        }
+    }
+
+    // ── UI 재구성: 헤더 + All/None + 트리뷰 ──
     CategoryContainer->ClearChildren();
 
     // 헤더
@@ -424,8 +480,11 @@ void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
             .OnClicked_Lambda([this]() -> FReply
             {
                 EnabledCategories = KnownCategories;
-                RebuildCategoryCheckboxes();
                 RebuildFilteredRows();
+                if (CategoryTreeView.IsValid())
+                {
+                    CategoryTreeView->RequestTreeRefresh();
+                }
                 return FReply::Handled();
             })
             [ SNew(STextBlock).Text(LOCTEXT("AllBtn", "All")) ]
@@ -437,55 +496,151 @@ void SHktGameplayLogPanel::RebuildCategoryCheckboxes()
             .OnClicked_Lambda([this]() -> FReply
             {
                 EnabledCategories.Reset();
-                RebuildCategoryCheckboxes();
                 RebuildFilteredRows();
+                if (CategoryTreeView.IsValid())
+                {
+                    CategoryTreeView->RequestTreeRefresh();
+                }
                 return FReply::Handled();
             })
             [ SNew(STextBlock).Text(LOCTEXT("NoneBtn", "None")) ]
         ]
     ];
 
-    // 카테고리별 체크박스 (정렬)
-    TArray<FGameplayTag> Tags;
-    KnownCategories.GetGameplayTagArray(Tags);
-    Tags.Sort([](const FGameplayTag& A, const FGameplayTag& B)
-    {
-        return A.GetTagName().LexicalLess(B.GetTagName());
-    });
-
-    for (const FGameplayTag& CatTag : Tags)
-    {
-        FGameplayTag CapturedTag = CatTag;
-        FString DisplayName = GetCategoryDisplayName(CatTag);
-
-        CategoryContainer->AddSlot()
-        .AutoHeight()
-        .Padding(4, 1)
+    // 트리뷰
+    CategoryContainer->AddSlot()
+    .FillHeight(1.0f)
+    [
+        SNew(SScrollBox)
+        + SScrollBox::Slot()
         [
-            SNew(SCheckBox)
-            .IsChecked_Lambda([this, CapturedTag]() -> ECheckBoxState
+            SAssignNew(CategoryTreeView, STreeView<TSharedPtr<FCategoryTreeNode>>)
+            .TreeItemsSource(&CategoryRootNodes)
+            .OnGenerateRow(this, &SHktGameplayLogPanel::OnGenerateCategoryRow)
+            .OnGetChildren(this, &SHktGameplayLogPanel::OnGetCategoryChildren)
+            .SelectionMode(ESelectionMode::None)
+        ]
+    ];
+
+    // 모든 노드를 기본 확장
+    TFunction<void(const TArray<TSharedPtr<FCategoryTreeNode>>&)> ExpandAll =
+        [this, &ExpandAll](const TArray<TSharedPtr<FCategoryTreeNode>>& Nodes)
+    {
+        for (const auto& Node : Nodes)
+        {
+            CategoryTreeView->SetItemExpansion(Node, true);
+            ExpandAll(Node->Children);
+        }
+    };
+    ExpandAll(CategoryRootNodes);
+}
+
+TSharedRef<ITableRow> SHktGameplayLogPanel::OnGenerateCategoryRow(
+    TSharedPtr<FCategoryTreeNode> Item,
+    const TSharedRef<STableViewBase>& OwnerTable)
+{
+    // 노드에 대응하는 색상 결정
+    FSlateColor NodeColor = FSlateColor(LogColors::Message);
+    if (Item->Tag.IsValid())
+    {
+        NodeColor = GetCategoryColor(Item->Tag);
+    }
+    else if (Item->Children.Num() > 0)
+    {
+        // 중간 노드: 첫 번째 리프의 색상 사용
+        TArray<FGameplayTag> LeafTags;
+        Item->GatherLeafTags(LeafTags);
+        if (LeafTags.Num() > 0)
+        {
+            NodeColor = GetCategoryColor(LeafTags[0]);
+        }
+    }
+
+    const bool bHasChildren = Item->Children.Num() > 0;
+    const FSlateFontInfo Font = bHasChildren
+        ? FCoreStyle::GetDefaultFontStyle("Bold", 9)
+        : FCoreStyle::GetDefaultFontStyle("Regular", 9);
+
+    return SNew(STableRow<TSharedPtr<FCategoryTreeNode>>, OwnerTable)
+    [
+        SNew(SCheckBox)
+        .IsChecked_Lambda([this, Item]() -> ECheckBoxState
+        {
+            return GetNodeCheckState(Item);
+        })
+        .OnCheckStateChanged_Lambda([this, Item](ECheckBoxState NewState)
+        {
+            // Undetermined → Checked 로 처리
+            const ECheckBoxState Target = (NewState != ECheckBoxState::Unchecked)
+                ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+            ToggleNodeCheckState(Item, Target);
+            RebuildFilteredRows();
+            if (CategoryTreeView.IsValid())
             {
-                return EnabledCategories.HasTagExact(CapturedTag) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-            })
-            .OnCheckStateChanged_Lambda([this, CapturedTag](ECheckBoxState NewState)
-            {
-                if (NewState == ECheckBoxState::Checked)
-                {
-                    EnabledCategories.AddTag(CapturedTag);
-                }
-                else
-                {
-                    EnabledCategories.RemoveTag(CapturedTag);
-                }
-                RebuildFilteredRows();
-            })
-            [
-                SNew(STextBlock)
-                .Text(FText::FromString(DisplayName))
-                .Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-                .ColorAndOpacity(GetCategoryColor(CapturedTag))
-            ]
-        ];
+                CategoryTreeView->RequestTreeRefresh();
+            }
+        })
+        [
+            SNew(STextBlock)
+            .Text(FText::FromString(Item->DisplayName))
+            .Font(Font)
+            .ColorAndOpacity(NodeColor)
+        ]
+    ];
+}
+
+void SHktGameplayLogPanel::OnGetCategoryChildren(
+    TSharedPtr<FCategoryTreeNode> Item,
+    TArray<TSharedPtr<FCategoryTreeNode>>& OutChildren)
+{
+    OutChildren = Item->Children;
+}
+
+ECheckBoxState SHktGameplayLogPanel::GetNodeCheckState(TSharedPtr<FCategoryTreeNode> Node) const
+{
+    TArray<FGameplayTag> LeafTags;
+    Node->GatherLeafTags(LeafTags);
+
+    if (LeafTags.Num() == 0)
+    {
+        return ECheckBoxState::Unchecked;
+    }
+
+    int32 EnabledCount = 0;
+    for (const FGameplayTag& Tag : LeafTags)
+    {
+        if (EnabledCategories.HasTagExact(Tag))
+        {
+            ++EnabledCount;
+        }
+    }
+
+    if (EnabledCount == 0)
+    {
+        return ECheckBoxState::Unchecked;
+    }
+    if (EnabledCount == LeafTags.Num())
+    {
+        return ECheckBoxState::Checked;
+    }
+    return ECheckBoxState::Undetermined;
+}
+
+void SHktGameplayLogPanel::ToggleNodeCheckState(TSharedPtr<FCategoryTreeNode> Node, ECheckBoxState NewState)
+{
+    TArray<FGameplayTag> LeafTags;
+    Node->GatherLeafTags(LeafTags);
+
+    for (const FGameplayTag& Tag : LeafTags)
+    {
+        if (NewState == ECheckBoxState::Checked)
+        {
+            EnabledCategories.AddTag(Tag);
+        }
+        else
+        {
+            EnabledCategories.RemoveTag(Tag);
+        }
     }
 }
 

@@ -5,9 +5,36 @@
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/SListView.h"
+#include "Widgets/Views/STreeView.h"
 #include "GameplayTagContainer.h"
 
 struct FHktLogEntry;
+
+/** 카테고리 트리 노드: 태그 계층 구조를 UI 트리로 표현 */
+struct FCategoryTreeNode
+{
+    /** 이 레벨의 표시 이름 (예: "Core", "Entity") */
+    FString DisplayName;
+
+    /** 이 노드에 대응하는 FGameplayTag (리프 노드는 실제 태그, 중간 노드는 Invalid 가능) */
+    FGameplayTag Tag;
+
+    /** 자식 노드 */
+    TArray<TSharedPtr<FCategoryTreeNode>> Children;
+
+    /** 이 노드 이하의 모든 리프 태그를 수집 */
+    void GatherLeafTags(TArray<FGameplayTag>& OutTags) const
+    {
+        if (Children.Num() == 0 && Tag.IsValid())
+        {
+            OutTags.Add(Tag);
+        }
+        for (const auto& Child : Children)
+        {
+            Child->GatherLeafTags(OutTags);
+        }
+    }
+};
 
 /**
  * SHktGameplayLogPanel
@@ -16,7 +43,7 @@ struct FHktLogEntry;
  * FHktCoreEventLog 싱글톤을 통해 링 버퍼에서 이벤트를 읽어 표시.
  *
  * - 패널 열림/닫힘에 따라 로그 수집 자동 활성화/비활성화
- * - Category(FGameplayTag) 계층적 필터링: MatchesTag()로 상위 태그 선택 시 하위 포함
+ * - Category(FGameplayTag) 계층적 필터링: 트리뷰로 상위 태그 선택 시 하위 포함
  * - EntityId, EventTag, 텍스트 필터 지원
  * - 자동 스크롤 (하단 고정)
  */
@@ -39,8 +66,22 @@ private:
     /** 필터링된 행 목록 재구성 */
     void RebuildFilteredRows();
 
-    /** 카테고리 체크박스 목록 재구성 */
-    void RebuildCategoryCheckboxes();
+    /** 카테고리 트리 재구성 (KnownCategories → 트리 노드) */
+    void RebuildCategoryTree();
+
+    /** STreeView 행 생성 콜백 */
+    TSharedRef<ITableRow> OnGenerateCategoryRow(TSharedPtr<FCategoryTreeNode> Item,
+                                                 const TSharedRef<STableViewBase>& OwnerTable);
+
+    /** STreeView 자식 노드 콜백 */
+    void OnGetCategoryChildren(TSharedPtr<FCategoryTreeNode> Item,
+                                TArray<TSharedPtr<FCategoryTreeNode>>& OutChildren);
+
+    /** 노드의 체크 상태 계산 (자식 포함 계층적 판단) */
+    ECheckBoxState GetNodeCheckState(TSharedPtr<FCategoryTreeNode> Node) const;
+
+    /** 노드 체크 상태 토글 (자식 포함 재귀적 적용) */
+    void ToggleNodeCheckState(TSharedPtr<FCategoryTreeNode> Node, ECheckBoxState NewState);
 
     /** SListView 행 생성 콜백 */
     TSharedRef<ITableRow> OnGenerateRow(TSharedPtr<FHktLogEntry> Item,
@@ -63,7 +104,13 @@ private:
     /** 리스트뷰 */
     TSharedPtr<SListView<TSharedPtr<FHktLogEntry>>> ListView;
 
-    /** 카테고리 체크박스 컨테이너 */
+    /** 카테고리 트리뷰 */
+    TSharedPtr<STreeView<TSharedPtr<FCategoryTreeNode>>> CategoryTreeView;
+
+    /** 카테고리 트리 루트 노드 */
+    TArray<TSharedPtr<FCategoryTreeNode>> CategoryRootNodes;
+
+    /** All/None 버튼 + 트리뷰를 담는 컨테이너 */
     TSharedPtr<SVerticalBox> CategoryContainer;
 
     /** 로그 카운트 텍스트 */
