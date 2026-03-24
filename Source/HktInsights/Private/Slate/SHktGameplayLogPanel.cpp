@@ -607,9 +607,9 @@ ECheckBoxState SHktGameplayLogPanel::GetNodeCheckState(TSharedPtr<FCategoryTreeN
     }
 
     int32 EnabledCount = 0;
-    for (const FGameplayTag& Tag : LeafTags)
+    for (const FGameplayTag& LeafTag : LeafTags)
     {
-        if (EnabledCategories.HasTagExact(Tag))
+        if (EnabledCategories.HasTagExact(LeafTag))
         {
             ++EnabledCount;
         }
@@ -631,15 +631,15 @@ void SHktGameplayLogPanel::ToggleNodeCheckState(TSharedPtr<FCategoryTreeNode> No
     TArray<FGameplayTag> LeafTags;
     Node->GatherLeafTags(LeafTags);
 
-    for (const FGameplayTag& Tag : LeafTags)
+    for (const FGameplayTag& LeafTag : LeafTags)
     {
         if (NewState == ECheckBoxState::Checked)
         {
-            EnabledCategories.AddTag(Tag);
+            EnabledCategories.AddTag(LeafTag);
         }
         else
         {
-            EnabledCategories.RemoveTag(Tag);
+            EnabledCategories.RemoveTag(LeafTag);
         }
     }
 }
