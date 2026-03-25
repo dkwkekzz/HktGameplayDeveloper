@@ -1,7 +1,6 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
 #include "Slate/SHktGameplayLogPanel.h"
-#include "HktCoreEventLog.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Layout/SBox.h"

@@ -309,7 +309,7 @@ void SHktWorldStatePanel::RefreshData()
     // Owner 이후 프로퍼티 알파벳 정렬
     if (NewPropertyOrder.Num() > 1)
     {
-        ::Sort(NewPropertyOrder.GetData() + 1, NewPropertyOrder.Num() - 1);
+        Algo::Sort(NewPropertyOrder);
     }
 
     // ── 메타 갱신 ──

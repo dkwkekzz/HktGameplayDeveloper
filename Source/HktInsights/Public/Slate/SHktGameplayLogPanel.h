@@ -7,6 +7,7 @@
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Views/STreeView.h"
 #include "GameplayTagContainer.h"
+#include "HktCoreEventLog.h"
 
 struct FHktLogEntry;
 
