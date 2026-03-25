@@ -123,6 +123,14 @@ private:
     FGameplayTagContainer EnabledCategories;  // 활성화된 카테고리 태그
     FGameplayTagContainer KnownCategories;    // 지금까지 본 카테고리 태그
 
+    // ── LogLevel 필터 ──
+    EHktLogLevel MinLogLevel = EHktLogLevel::Verbose;  // 이 레벨 이상만 표시
+
+    // ── Source 필터 (클라/서버 분리) ──
+    bool bShowCore   = true;
+    bool bShowServer = true;
+    bool bShowClient = true;
+
     // ── 폴링 상태 ──
     uint32 ReadIndex = 0;
     uint32 CachedVersion = 0;

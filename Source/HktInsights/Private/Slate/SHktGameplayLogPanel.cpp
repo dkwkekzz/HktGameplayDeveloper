@@ -35,6 +35,40 @@ namespace LogColors
     static const FLinearColor CatUI(0.95f, 0.75f, 0.5f);
     static const FLinearColor CatVFX(0.5f, 0.95f, 0.9f);
     static const FLinearColor CatDefault(0.7f, 0.7f, 0.7f);
+
+    // LogLevel별 색상
+    static const FLinearColor LevelVerbose(0.55f, 0.55f, 0.55f);
+    static const FLinearColor LevelInfo(0.7f, 0.85f, 1.0f);
+    static const FLinearColor LevelWarning(1.0f, 0.85f, 0.3f);
+    static const FLinearColor LevelError(1.0f, 0.35f, 0.3f);
+
+    // Source별 색상
+    static const FLinearColor SourceCore(0.7f, 0.7f, 0.7f);
+    static const FLinearColor SourceServer(1.0f, 0.6f, 0.3f);
+    static const FLinearColor SourceClient(0.3f, 0.85f, 0.85f);
+}
+
+static FLinearColor GetLogLevelColor(EHktLogLevel Level)
+{
+    switch (Level)
+    {
+    case EHktLogLevel::Verbose: return LogColors::LevelVerbose;
+    case EHktLogLevel::Info:    return LogColors::LevelInfo;
+    case EHktLogLevel::Warning: return LogColors::LevelWarning;
+    case EHktLogLevel::Error:   return LogColors::LevelError;
+    default:                    return LogColors::LevelInfo;
+    }
+}
+
+static FLinearColor GetLogSourceColor(EHktLogSource Source)
+{
+    switch (Source)
+    {
+    case EHktLogSource::Core:   return LogColors::SourceCore;
+    case EHktLogSource::Server: return LogColors::SourceServer;
+    case EHktLogSource::Client: return LogColors::SourceClient;
+    default:                    return LogColors::SourceCore;
+    }
 }
 
 // ============================================================================
@@ -145,6 +179,101 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
                 ]
             ]
 
+            // ── Source 필터 (클라/서버 분리) ──
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 4, 0)
+            [
+                SNew(SCheckBox)
+                .IsChecked_Lambda([this]() { return bShowCore ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
+                .OnCheckStateChanged_Lambda([this](ECheckBoxState S) { bShowCore = (S == ECheckBoxState::Checked); RebuildFilteredRows(); })
+                [
+                    SNew(STextBlock)
+                    .Text(LOCTEXT("CoreLabel", "Core"))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+                    .ColorAndOpacity(FSlateColor(LogColors::SourceCore))
+                ]
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 4, 0)
+            [
+                SNew(SCheckBox)
+                .IsChecked_Lambda([this]() { return bShowServer ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
+                .OnCheckStateChanged_Lambda([this](ECheckBoxState S) { bShowServer = (S == ECheckBoxState::Checked); RebuildFilteredRows(); })
+                [
+                    SNew(STextBlock)
+                    .Text(LOCTEXT("ServerLabel", "Server"))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+                    .ColorAndOpacity(FSlateColor(LogColors::SourceServer))
+                ]
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 8, 0)
+            [
+                SNew(SCheckBox)
+                .IsChecked_Lambda([this]() { return bShowClient ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
+                .OnCheckStateChanged_Lambda([this](ECheckBoxState S) { bShowClient = (S == ECheckBoxState::Checked); RebuildFilteredRows(); })
+                [
+                    SNew(STextBlock)
+                    .Text(LOCTEXT("ClientLabel", "Client"))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+                    .ColorAndOpacity(FSlateColor(LogColors::SourceClient))
+                ]
+            ]
+
+            // ── LogLevel 최소 레벨 ──
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 4, 0)
+            [
+                SNew(STextBlock)
+                .Text(LOCTEXT("LevelLabel", "Level:"))
+                .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+                .ColorAndOpacity(FSlateColor(LogColors::Dim))
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 4, 0)
+            [
+                SNew(SButton)
+                .OnClicked_Lambda([this]() -> FReply { MinLogLevel = EHktLogLevel::Verbose; RebuildFilteredRows(); return FReply::Handled(); })
+                [ SNew(STextBlock).Text(LOCTEXT("VrbBtn", "VRB")).Font(FCoreStyle::GetDefaultFontStyle("Regular", 8)).ColorAndOpacity(FSlateColor(LogColors::LevelVerbose)) ]
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 4, 0)
+            [
+                SNew(SButton)
+                .OnClicked_Lambda([this]() -> FReply { MinLogLevel = EHktLogLevel::Info; RebuildFilteredRows(); return FReply::Handled(); })
+                [ SNew(STextBlock).Text(LOCTEXT("InfBtn", "INF")).Font(FCoreStyle::GetDefaultFontStyle("Regular", 8)).ColorAndOpacity(FSlateColor(LogColors::LevelInfo)) ]
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 4, 0)
+            [
+                SNew(SButton)
+                .OnClicked_Lambda([this]() -> FReply { MinLogLevel = EHktLogLevel::Warning; RebuildFilteredRows(); return FReply::Handled(); })
+                [ SNew(STextBlock).Text(LOCTEXT("WrnBtn", "WRN")).Font(FCoreStyle::GetDefaultFontStyle("Regular", 8)).ColorAndOpacity(FSlateColor(LogColors::LevelWarning)) ]
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 12, 0)
+            [
+                SNew(SButton)
+                .OnClicked_Lambda([this]() -> FReply { MinLogLevel = EHktLogLevel::Error; RebuildFilteredRows(); return FReply::Handled(); })
+                [ SNew(STextBlock).Text(LOCTEXT("ErrBtn", "ERR")).Font(FCoreStyle::GetDefaultFontStyle("Regular", 8)).ColorAndOpacity(FSlateColor(LogColors::LevelError)) ]
+            ]
+
             // 로그 수
             + SHorizontalBox::Slot()
             .FillWidth(1.0f)
@@ -239,6 +368,12 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
                     + SHeaderRow::Column(TEXT("Frame"))
                         .DefaultLabel(LOCTEXT("ColFrame", "Frame"))
                         .FixedWidth(70.f)
+                    + SHeaderRow::Column(TEXT("Level"))
+                        .DefaultLabel(LOCTEXT("ColLevel", "Level"))
+                        .FixedWidth(40.f)
+                    + SHeaderRow::Column(TEXT("Source"))
+                        .DefaultLabel(LOCTEXT("ColSource", "Source"))
+                        .FixedWidth(55.f)
                     + SHeaderRow::Column(TEXT("Category"))
                         .DefaultLabel(LOCTEXT("ColCategory", "Category"))
                         .FixedWidth(130.f)
@@ -344,6 +479,20 @@ void SHktGameplayLogPanel::PollNewEntries()
 
 bool SHktGameplayLogPanel::PassesFilter(const FHktLogEntry& Entry) const
 {
+    // LogLevel 필터: MinLogLevel 이상만 표시
+    if (Entry.Level < MinLogLevel)
+    {
+        return false;
+    }
+
+    // Source 필터 (클라/서버 분리)
+    switch (Entry.Source)
+    {
+    case EHktLogSource::Core:   if (!bShowCore)   return false; break;
+    case EHktLogSource::Server: if (!bShowServer) return false; break;
+    case EHktLogSource::Client: if (!bShowClient) return false; break;
+    }
+
     // 카테고리 필터: HasTagExact()로 리프 태그 기반 매칭 (트리뷰에서 계층 토글)
     if (!EnabledCategories.HasTagExact(Entry.Category))
     {
@@ -691,6 +840,24 @@ TSharedRef<ITableRow> SHktGameplayLogPanel::OnGenerateRow(
                     .Margin(FMargin(2, 1));
             }
 
+            if (ColStr == TEXT("Level"))
+            {
+                return SNew(STextBlock)
+                    .Text(FText::FromString(FString(GetLogLevelName(Item->Level))))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
+                    .ColorAndOpacity(FSlateColor(GetLogLevelColor(Item->Level)))
+                    .Margin(FMargin(2, 1));
+            }
+
+            if (ColStr == TEXT("Source"))
+            {
+                return SNew(STextBlock)
+                    .Text(FText::FromString(FString(GetLogSourceName(Item->Source))))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 8))
+                    .ColorAndOpacity(FSlateColor(GetLogSourceColor(Item->Source)))
+                    .Margin(FMargin(2, 1));
+            }
+
             if (ColStr == TEXT("Category"))
             {
                 FString DisplayName = SHktGameplayLogPanel::GetCategoryDisplayName(Item->Category);
@@ -723,12 +890,19 @@ TSharedRef<ITableRow> SHktGameplayLogPanel::OnGenerateRow(
                     .Margin(FMargin(2, 1));
             }
 
-            // Message
-            return SNew(STextBlock)
-                .Text(FText::FromString(Item->Message))
-                .Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
-                .ColorAndOpacity(FSlateColor(LogColors::Message))
-                .Margin(FMargin(2, 1));
+            // Message — Warning/Error는 레벨 색상으로 강조
+            {
+                FLinearColor MsgColor = LogColors::Message;
+                if (Item->Level >= EHktLogLevel::Warning)
+                {
+                    MsgColor = GetLogLevelColor(Item->Level);
+                }
+                return SNew(STextBlock)
+                    .Text(FText::FromString(Item->Message))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
+                    .ColorAndOpacity(FSlateColor(MsgColor))
+                    .Margin(FMargin(2, 1));
+            }
         }
 
         TSharedPtr<FHktLogEntry> Item;
