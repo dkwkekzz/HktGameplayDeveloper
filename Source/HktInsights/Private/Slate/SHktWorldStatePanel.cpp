@@ -51,7 +51,8 @@ static EWSPropCategory GetPropCategory(const FString& PropName)
         return EWSPropCategory::Debug;
     }
     // Identity
-    if (PropName == TEXT("Owner") || PropName == TEXT("Tags"))
+    if (PropName == TEXT("Owner") || PropName == TEXT("Tags") ||
+        PropName == TEXT("OwnerEntity") || PropName == TEXT("IsNPC"))
     {
         return EWSPropCategory::Identity;
     }
@@ -83,9 +84,8 @@ static EWSPropCategory GetPropCategory(const FString& PropName)
     // Item/Equipment
     if (PropName == TEXT("ItemState") || PropName == TEXT("ItemId") ||
         PropName == TEXT("EquipIndex") || PropName == TEXT("BagCapacity") ||
-        PropName == TEXT("ItemSkillTag") || PropName == TEXT("SkillCPCost") ||
-        PropName == TEXT("RecoveryFrame") || PropName == TEXT("SkillTargetRequired") ||
-        PropName == TEXT("IsNPC") || PropName == TEXT("SpawnFlowTag") ||
+        PropName == TEXT("SkillCPCost") || PropName == TEXT("RecoveryFrame") ||
+        PropName == TEXT("SkillTargetRequired") ||
         PropName.StartsWith(TEXT("EquipSlot")))
     {
         return EWSPropCategory::Item;
