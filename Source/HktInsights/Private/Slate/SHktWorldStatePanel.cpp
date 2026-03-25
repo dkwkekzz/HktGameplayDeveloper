@@ -2,6 +2,7 @@
 
 #include "Slate/SHktWorldStatePanel.h"
 #include "HktCoreDataCollector.h"
+#include "GameplayTagsManager.h"
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Layout/SBox.h"
@@ -117,6 +118,27 @@ static const TCHAR* GetCategoryLabel(EWSPropCategory Cat)
     case EWSPropCategory::Other:    return TEXT("Other");
     default:                        return TEXT("Unknown");
     }
+}
+
+// ── Tag NetIndex 해석 (게임코드 대신 Developer 쪽에서 처리) ──
+
+static bool IsTagProperty(const FString& PropName)
+{
+    return PropName == TEXT("EntitySpawnTag")
+        || PropName == TEXT("SpawnFlowTag")
+        || PropName == TEXT("ItemSkillTag")
+        || PropName == TEXT("Stance");
+}
+
+static FString ResolveTagNetIndex(const FString& RawValue)
+{
+    if (RawValue.IsEmpty()) return RawValue;
+    int32 NetIdx = FCString::Atoi(*RawValue);
+    if (NetIdx == 0) return RawValue;
+    FName TagName = UGameplayTagsManager::Get().GetTagNameFromNetIndex(
+        static_cast<FGameplayTagNetIndex>(NetIdx));
+    if (TagName.IsNone()) return RawValue;
+    return TagName.ToString();
 }
 
 // ============================================================================
@@ -353,6 +375,13 @@ void SHktWorldStatePanel::RefreshData()
             {
                 FString PropName = Seg.Left(EqIdx);
                 FString PropValue = Seg.Mid(EqIdx + 1);
+
+                // Tag 프로퍼티는 NetIndex → 태그 이름으로 변환
+                if (IsTagProperty(PropName))
+                {
+                    PropValue = ResolveTagNetIndex(PropValue);
+                }
+
                 Props.Add(PropName, PropValue);
 
                 if (!SeenProps.Contains(PropName))
