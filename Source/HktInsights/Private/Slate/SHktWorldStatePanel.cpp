@@ -8,7 +8,6 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSplitter.h"
-#include "Widgets/Layout/SSeparator.h"
 #include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "HktWorldStatePanel"
@@ -21,106 +20,11 @@ namespace WSColors
     static const FLinearColor Value(0.88f, 0.88f, 0.88f);
     static const FLinearColor FieldName(0.5f, 0.5f, 0.58f);
     static const FLinearColor Dim(0.4f, 0.4f, 0.4f);
-
-    // 카테고리별 값 컬러
-    static const FLinearColor TagValue(0.55f, 0.9f, 0.55f);     // 태그: 초록
-    static const FLinearColor DebugValue(0.95f, 0.85f, 0.4f);   // 디버그: 노랑
-    static const FLinearColor PositionValue(0.5f, 0.8f, 0.95f); // 위치: 하늘
-    static const FLinearColor CombatValue(1.0f, 0.55f, 0.45f);  // 전투: 빨강
-    static const FLinearColor SectionHeader(0.75f, 0.65f, 0.9f);// 섹션 헤더: 보라
+    static const FLinearColor TagValue(0.55f, 0.9f, 0.55f);     // 태그 값: 초록
+    static const FLinearColor DebugValue(0.95f, 0.85f, 0.4f);   // 디버그 정보: 노랑
 }
 
-// ── 프로퍼티 카테고리 분류 ──
-enum class EWSPropCategory : uint8
-{
-    Debug,      // DebugName, ClassTag, StoryTag, CreationFrame
-    Identity,   // Owner, Tags
-    Position,   // PosX/Y/Z, RotYaw, MoveTarget, MoveForce, IsMoving, MaxSpeed, Vel, Mass, CollisionRadius
-    Combat,     // Health, MaxHealth, AttackPower, Defense, Team, Mana, MaxMana, CP, MaxCP, AttackSpeed, NextActionFrame
-    Tag,        // EntitySpawnTag, SpawnFlowTag, ItemSkillTag, Stance
-    Item,       // ItemState, ItemId, EquipIndex, BagCapacity, EquipSlot*
-    Other       // 나머지
-};
-
-static EWSPropCategory GetPropCategory(const FString& PropName)
-{
-    // Debug
-    if (PropName == TEXT("DebugName") || PropName == TEXT("ClassTag") ||
-        PropName == TEXT("StoryTag") || PropName == TEXT("CreationFrame"))
-    {
-        return EWSPropCategory::Debug;
-    }
-    // Identity
-    if (PropName == TEXT("Owner") || PropName == TEXT("Tags") ||
-        PropName == TEXT("OwnerEntity") || PropName == TEXT("IsNPC"))
-    {
-        return EWSPropCategory::Identity;
-    }
-    // Position/Movement/Physics
-    if (PropName == TEXT("PosX") || PropName == TEXT("PosY") || PropName == TEXT("PosZ") ||
-        PropName == TEXT("RotYaw") ||
-        PropName == TEXT("MoveTargetX") || PropName == TEXT("MoveTargetY") || PropName == TEXT("MoveTargetZ") ||
-        PropName == TEXT("MoveForce") || PropName == TEXT("IsMoving") || PropName == TEXT("MaxSpeed") ||
-        PropName == TEXT("VelX") || PropName == TEXT("VelY") || PropName == TEXT("VelZ") ||
-        PropName == TEXT("Mass") || PropName == TEXT("CollisionRadius"))
-    {
-        return EWSPropCategory::Position;
-    }
-    // Combat
-    if (PropName == TEXT("Health") || PropName == TEXT("MaxHealth") ||
-        PropName == TEXT("AttackPower") || PropName == TEXT("Defense") ||
-        PropName == TEXT("Team") || PropName == TEXT("Mana") || PropName == TEXT("MaxMana") ||
-        PropName == TEXT("CP") || PropName == TEXT("MaxCP") ||
-        PropName == TEXT("AttackSpeed") || PropName == TEXT("NextActionFrame"))
-    {
-        return EWSPropCategory::Combat;
-    }
-    // Tag (NetIndex → 이름으로 이미 변환된 프로퍼티)
-    if (PropName == TEXT("EntitySpawnTag") || PropName == TEXT("SpawnFlowTag") ||
-        PropName == TEXT("ItemSkillTag") || PropName == TEXT("Stance"))
-    {
-        return EWSPropCategory::Tag;
-    }
-    // Item/Equipment
-    if (PropName == TEXT("ItemState") || PropName == TEXT("ItemId") ||
-        PropName == TEXT("EquipIndex") || PropName == TEXT("BagCapacity") ||
-        PropName == TEXT("SkillCPCost") || PropName == TEXT("RecoveryFrame") ||
-        PropName == TEXT("SkillTargetRequired") ||
-        PropName.StartsWith(TEXT("EquipSlot")))
-    {
-        return EWSPropCategory::Item;
-    }
-    return EWSPropCategory::Other;
-}
-
-static FLinearColor GetValueColor(EWSPropCategory Cat)
-{
-    switch (Cat)
-    {
-    case EWSPropCategory::Debug:    return WSColors::DebugValue;
-    case EWSPropCategory::Tag:      return WSColors::TagValue;
-    case EWSPropCategory::Position: return WSColors::PositionValue;
-    case EWSPropCategory::Combat:   return WSColors::CombatValue;
-    default:                        return WSColors::Value;
-    }
-}
-
-static const TCHAR* GetCategoryLabel(EWSPropCategory Cat)
-{
-    switch (Cat)
-    {
-    case EWSPropCategory::Debug:    return TEXT("Debug Info");
-    case EWSPropCategory::Identity: return TEXT("Identity");
-    case EWSPropCategory::Position: return TEXT("Position / Movement");
-    case EWSPropCategory::Combat:   return TEXT("Combat / Stats");
-    case EWSPropCategory::Tag:      return TEXT("Tag Properties");
-    case EWSPropCategory::Item:     return TEXT("Item / Equipment");
-    case EWSPropCategory::Other:    return TEXT("Other");
-    default:                        return TEXT("Unknown");
-    }
-}
-
-// ── Tag NetIndex 해석 (게임코드 대신 Developer 쪽에서 처리) ──
+// ── Tag NetIndex 해석 ──
 
 static bool IsTagProperty(const FString& PropName)
 {
@@ -139,6 +43,15 @@ static FString ResolveTagNetIndex(const FString& RawValue)
         static_cast<FGameplayTagNetIndex>(NetIdx));
     if (TagName.IsNone()) return RawValue;
     return TagName.ToString();
+}
+
+static FSlateColor GetPropValueColor(const FString& PropName)
+{
+    if (IsTagProperty(PropName))
+    {
+        return FSlateColor(WSColors::TagValue);
+    }
+    return FSlateColor(WSColors::Value);
 }
 
 // ============================================================================
@@ -393,21 +306,10 @@ void SHktWorldStatePanel::RefreshData()
         }
     }
 
-    // 카테고리별 그룹 정렬 (카테고리 순서 유지, 카테고리 내 알파벳 정렬)
+    // Owner 이후 프로퍼티 알파벳 정렬
     if (NewPropertyOrder.Num() > 1)
     {
-        // Owner(index 0)는 고정, 나머지를 카테고리별로 정렬
-        ::Sort(NewPropertyOrder.GetData() + 1, NewPropertyOrder.Num() - 1,
-            [](const FString& A, const FString& B)
-        {
-            EWSPropCategory CatA = GetPropCategory(A);
-            EWSPropCategory CatB = GetPropCategory(B);
-            if (CatA != CatB)
-            {
-                return static_cast<uint8>(CatA) < static_cast<uint8>(CatB);
-            }
-            return A < B;
-        });
+        ::Sort(NewPropertyOrder.GetData() + 1, NewPropertyOrder.Num() - 1);
     }
 
     // ── 메타 갱신 ──
@@ -630,7 +532,7 @@ void SHktWorldStatePanel::BuildDetailPanel()
 
     TWeakPtr<FHktWorldStateEntityRow> WeakEntity = Entity;
 
-    // ── 헤더: Entity — DebugName, ClassTag, StoryTag 실시간 반영 ──
+    // ── 헤더: Entity — DebugName 실시간 반영 ──
     DetailContainer->AddSlot()
     .AutoHeight()
     .Padding(4, 2, 4, 2)
@@ -687,51 +589,16 @@ void SHktWorldStatePanel::BuildDetailPanel()
         .ColorAndOpacity(FSlateColor(WSColors::DebugValue))
     ];
 
-    // ── 프로퍼티 목록 — 카테고리별 그룹, 위젯 1회 생성, 값은 TAttribute 람다 ──
+    // ── 프로퍼티 목록 — 위젯 1회 생성, 값은 TAttribute 람다 ──
     TSharedRef<SScrollBox> PropsScroll = SNew(SScrollBox);
-
-    // 디버그 프로퍼티는 헤더에 이미 표시하므로 본문에서는 제외
-    static const TSet<FString> HeaderProps = { TEXT("DebugName"), TEXT("ClassTag"), TEXT("StoryTag"), TEXT("CreationFrame") };
-
-    EWSPropCategory LastCategory = static_cast<EWSPropCategory>(0xFF);
 
     for (const FString& PropName : AllPropertyNames)
     {
-        if (HeaderProps.Contains(PropName)) continue;
-
-        EWSPropCategory Cat = GetPropCategory(PropName);
-        FLinearColor ValColor = GetValueColor(Cat);
-
-        // 카테고리 변경 시 섹션 헤더 삽입
-        if (Cat != LastCategory)
-        {
-            LastCategory = Cat;
-            const TCHAR* Label = GetCategoryLabel(Cat);
-
-            // 구분선
-            PropsScroll->AddSlot()
-            .Padding(4, 6, 4, 1)
-            [
-                SNew(SSeparator)
-                .Thickness(1.f)
-                .ColorAndOpacity(FSlateColor(WSColors::Dim))
-            ];
-
-            // 섹션 제목
-            PropsScroll->AddSlot()
-            .Padding(4, 1, 4, 2)
-            [
-                SNew(STextBlock)
-                .Text(FText::FromString(Label))
-                .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-                .ColorAndOpacity(FSlateColor(WSColors::SectionHeader))
-            ];
-        }
-
         FString CapturedProp = PropName;
+        FSlateColor ValColor = GetPropValueColor(PropName);
 
         PropsScroll->AddSlot()
-        .Padding(8, 1, 4, 1)
+        .Padding(4, 1)
         [
             SNew(SHorizontalBox)
 
@@ -740,7 +607,7 @@ void SHktWorldStatePanel::BuildDetailPanel()
             .AutoWidth()
             [
                 SNew(SBox)
-                .MinDesiredWidth(140.f)
+                .MinDesiredWidth(120.f)
                 [
                     SNew(STextBlock)
                     .Text(FText::FromString(PropName))
@@ -764,7 +631,7 @@ void SHktWorldStatePanel::BuildDetailPanel()
                     return FText::FromString(TEXT("-"));
                 }))
                 .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-                .ColorAndOpacity(FSlateColor(ValColor))
+                .ColorAndOpacity(ValColor)
             ]
         ];
     }
