@@ -2,6 +2,7 @@
 
 #include "Slate/SHktWorldStatePanel.h"
 #include "HktCoreDataCollector.h"
+#include "GameplayTagsManager.h"
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Layout/SBox.h"
@@ -19,10 +20,37 @@ namespace WSColors
     static const FLinearColor Value(0.88f, 0.88f, 0.88f);
     static const FLinearColor FieldName(0.5f, 0.5f, 0.58f);
     static const FLinearColor Dim(0.4f, 0.4f, 0.4f);
+    static const FLinearColor TagValue(0.55f, 0.9f, 0.55f);     // 태그 값: 초록
+    static const FLinearColor DebugValue(0.95f, 0.85f, 0.4f);   // 디버그 정보: 노랑
 }
 
-static FSlateColor GetPropColor(const FString& PropName, const FString& Value)
+// ── Tag NetIndex 해석 ──
+
+static bool IsTagProperty(const FString& PropName)
 {
+    return PropName == TEXT("EntitySpawnTag")
+        || PropName == TEXT("SpawnFlowTag")
+        || PropName == TEXT("ItemSkillTag")
+        || PropName == TEXT("Stance");
+}
+
+static FString ResolveTagNetIndex(const FString& RawValue)
+{
+    if (RawValue.IsEmpty()) return RawValue;
+    int32 NetIdx = FCString::Atoi(*RawValue);
+    if (NetIdx == 0) return RawValue;
+    FName TagName = UGameplayTagsManager::Get().GetTagNameFromNetIndex(
+        static_cast<FGameplayTagNetIndex>(NetIdx));
+    if (TagName.IsNone()) return RawValue;
+    return TagName.ToString();
+}
+
+static FSlateColor GetPropValueColor(const FString& PropName)
+{
+    if (IsTagProperty(PropName))
+    {
+        return FSlateColor(WSColors::TagValue);
+    }
     return FSlateColor(WSColors::Value);
 }
 
@@ -260,6 +288,13 @@ void SHktWorldStatePanel::RefreshData()
             {
                 FString PropName = Seg.Left(EqIdx);
                 FString PropValue = Seg.Mid(EqIdx + 1);
+
+                // Tag 프로퍼티는 NetIndex → 태그 이름으로 변환
+                if (IsTagProperty(PropName))
+                {
+                    PropValue = ResolveTagNetIndex(PropValue);
+                }
+
                 Props.Add(PropName, PropValue);
 
                 if (!SeenProps.Contains(PropName))
@@ -271,7 +306,7 @@ void SHktWorldStatePanel::RefreshData()
         }
     }
 
-    // Owner 이후 프로퍼티 알파벳 정렬 (TMap 순서 비결정적 → 안정적 순서 보장)
+    // Owner 이후 프로퍼티 알파벳 정렬
     if (NewPropertyOrder.Num() > 1)
     {
         ::Sort(NewPropertyOrder.GetData() + 1, NewPropertyOrder.Num() - 1);
@@ -379,7 +414,7 @@ void SHktWorldStatePanel::RebuildFilteredRows()
             {
                 for (const auto& Prop : Row->Props)
                 {
-                    if (Prop.Value.Contains(FilterText))
+                    if (Prop.Key.Contains(FilterText) || Prop.Value.Contains(FilterText))
                     {
                         bMatch = true;
                         break;
@@ -420,8 +455,21 @@ TSharedRef<ITableRow> SHktWorldStatePanel::OnGenerateRow(
 
             if (ColStr == TEXT("_Entity"))
             {
+                // Entity 컬럼: EntityKey + DebugName (있으면)
+                TWeakPtr<FHktWorldStateEntityRow> WeakItem = Item;
                 return SNew(STextBlock)
-                    .Text(FText::FromString(Item->EntityKey))
+                    .Text(TAttribute<FText>::CreateLambda([WeakItem]()
+                    {
+                        if (auto E = WeakItem.Pin())
+                        {
+                            if (const FString* DN = E->Props.Find(TEXT("DebugName")))
+                            {
+                                return FText::FromString(FString::Printf(TEXT("%s  [%s]"), *E->EntityKey, **DN));
+                            }
+                            return FText::FromString(E->EntityKey);
+                        }
+                        return FText::GetEmpty();
+                    }))
                     .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
                     .ColorAndOpacity(FSlateColor(WSColors::Key))
                     .Margin(FMargin(4, 1));
@@ -482,26 +530,63 @@ void SHktWorldStatePanel::BuildDetailPanel()
     }
     if (!Entity.IsValid()) return;
 
-    // ── 헤더: Entity (Type) — TAttribute 람다로 Type 실시간 반영 ──
     TWeakPtr<FHktWorldStateEntityRow> WeakEntity = Entity;
 
+    // ── 헤더: Entity — DebugName 실시간 반영 ──
     DetailContainer->AddSlot()
     .AutoHeight()
-    .Padding(4, 2, 4, 4)
+    .Padding(4, 2, 4, 2)
     [
         SNew(STextBlock)
         .Text(TAttribute<FText>::CreateLambda([WeakEntity]()
         {
             if (auto E = WeakEntity.Pin())
             {
-                FString TypeStr = TEXT("?");
-                if (const FString* T = E->Props.Find(TEXT("Type"))) TypeStr = *T;
-                return FText::FromString(FString::Printf(TEXT("%s  (%s)"), *E->EntityKey, *TypeStr));
+                FString Header = E->EntityKey;
+                if (const FString* DN = E->Props.Find(TEXT("DebugName")))
+                {
+                    Header += FString::Printf(TEXT("  —  %s"), **DN);
+                }
+                return FText::FromString(Header);
             }
             return FText::GetEmpty();
         }))
         .Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
         .ColorAndOpacity(FSlateColor(WSColors::Key))
+    ];
+
+    // ── 서브 헤더: ClassTag / StoryTag / CreationFrame ──
+    DetailContainer->AddSlot()
+    .AutoHeight()
+    .Padding(4, 0, 4, 4)
+    [
+        SNew(STextBlock)
+        .Text(TAttribute<FText>::CreateLambda([WeakEntity]()
+        {
+            if (auto E = WeakEntity.Pin())
+            {
+                TArray<FString> Parts;
+                if (const FString* CT = E->Props.Find(TEXT("ClassTag")))
+                {
+                    Parts.Add(FString::Printf(TEXT("Class: %s"), **CT));
+                }
+                if (const FString* ST = E->Props.Find(TEXT("StoryTag")))
+                {
+                    Parts.Add(FString::Printf(TEXT("Story: %s"), **ST));
+                }
+                if (const FString* CF = E->Props.Find(TEXT("CreationFrame")))
+                {
+                    Parts.Add(FString::Printf(TEXT("Born: F%s"), **CF));
+                }
+                if (Parts.Num() > 0)
+                {
+                    return FText::FromString(FString::Join(Parts, TEXT("  |  ")));
+                }
+            }
+            return FText::GetEmpty();
+        }))
+        .Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+        .ColorAndOpacity(FSlateColor(WSColors::DebugValue))
     ];
 
     // ── 프로퍼티 목록 — 위젯 1회 생성, 값은 TAttribute 람다 ──
@@ -510,6 +595,7 @@ void SHktWorldStatePanel::BuildDetailPanel()
     for (const FString& PropName : AllPropertyNames)
     {
         FString CapturedProp = PropName;
+        FSlateColor ValColor = GetPropValueColor(PropName);
 
         PropsScroll->AddSlot()
         .Padding(4, 1)
@@ -545,7 +631,7 @@ void SHktWorldStatePanel::BuildDetailPanel()
                     return FText::FromString(TEXT("-"));
                 }))
                 .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-                .ColorAndOpacity(FSlateColor(WSColors::Value))
+                .ColorAndOpacity(ValColor)
             ]
         ];
     }
