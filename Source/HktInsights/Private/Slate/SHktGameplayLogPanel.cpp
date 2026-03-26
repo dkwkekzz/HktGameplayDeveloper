@@ -42,7 +42,6 @@ namespace LogColors
     static const FLinearColor LevelError(1.0f, 0.35f, 0.3f);
 
     // Source별 색상
-    static const FLinearColor SourceCore(0.7f, 0.7f, 0.7f);
     static const FLinearColor SourceServer(1.0f, 0.6f, 0.3f);
     static const FLinearColor SourceClient(0.3f, 0.85f, 0.85f);
 }
@@ -63,10 +62,9 @@ static FLinearColor GetLogSourceColor(EHktLogSource Source)
 {
     switch (Source)
     {
-    case EHktLogSource::Core:   return LogColors::SourceCore;
     case EHktLogSource::Server: return LogColors::SourceServer;
     case EHktLogSource::Client: return LogColors::SourceClient;
-    default:                    return LogColors::SourceCore;
+    default:                    return LogColors::SourceServer;
     }
 }
 
@@ -179,21 +177,6 @@ void SHktGameplayLogPanel::Construct(const FArguments& InArgs)
             ]
 
             // ── Source 필터 (클라/서버 분리) ──
-            + SHorizontalBox::Slot()
-            .AutoWidth()
-            .VAlign(VAlign_Center)
-            .Padding(0, 0, 4, 0)
-            [
-                SNew(SCheckBox)
-                .IsChecked_Lambda([this]() { return bShowCore ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
-                .OnCheckStateChanged_Lambda([this](ECheckBoxState S) { bShowCore = (S == ECheckBoxState::Checked); RebuildFilteredRows(); })
-                [
-                    SNew(STextBlock)
-                    .Text(LOCTEXT("CoreLabel", "Core"))
-                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-                    .ColorAndOpacity(FSlateColor(LogColors::SourceCore))
-                ]
-            ]
             + SHorizontalBox::Slot()
             .AutoWidth()
             .VAlign(VAlign_Center)
@@ -487,7 +470,6 @@ bool SHktGameplayLogPanel::PassesFilter(const FHktLogEntry& Entry) const
     // Source 필터 (클라/서버 분리)
     switch (Entry.Source)
     {
-    case EHktLogSource::Core:   if (!bShowCore)   return false; break;
     case EHktLogSource::Server: if (!bShowServer) return false; break;
     case EHktLogSource::Client: if (!bShowClient) return false; break;
     }
