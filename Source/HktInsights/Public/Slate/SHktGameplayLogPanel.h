@@ -128,7 +128,6 @@ private:
     EHktLogLevel MinLogLevel = EHktLogLevel::Verbose;  // 이 레벨 이상만 표시
 
     // ── Source 필터 (클라/서버 분리) ──
-    bool bShowCore   = true;
     bool bShowServer = true;
     bool bShowClient = true;
 
