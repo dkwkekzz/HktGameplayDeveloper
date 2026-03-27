@@ -2,7 +2,6 @@
 
 #include "Slate/SHktVMStatePanel.h"
 #include "HktCoreDataCollector.h"
-#include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSplitter.h"
@@ -247,13 +246,49 @@ void SHktVMStatePanel::RefreshData()
     EntityListView->RequestListRefresh();
 
     // 선택 상태 유지
-    if (!SelectedEntityKey.IsEmpty() && !NewEntityMap.Contains(SelectedEntityKey))
+    if (!SelectedEntityKey.IsEmpty())
     {
-        SelectedEntityKey.Empty();
-        SelectedVMKey.Empty();
+        if (!NewEntityMap.Contains(SelectedEntityKey))
+        {
+            // 선택된 entity가 제거됨
+            SelectedEntityKey.Empty();
+            SelectedVMKey.Empty();
+        }
+        else
+        {
+            // 선택 복원 (TSharedPtr 재생성되었으므로 SListView에 알려줌)
+            for (const auto& Row : EntityRows)
+            {
+                if (Row->EntityKey == SelectedEntityKey)
+                {
+                    EntityListView->SetSelection(Row, ESelectInfo::Direct);
+                    break;
+                }
+            }
+        }
     }
 
     RebuildVMList();
+
+    // VM 선택 복원
+    if (!SelectedVMKey.IsEmpty())
+    {
+        bool bFound = false;
+        for (const auto& Row : FilteredVMRows)
+        {
+            if (Row->VMKey == SelectedVMKey)
+            {
+                VMListView->SetSelection(Row, ESelectInfo::Direct);
+                bFound = true;
+                break;
+            }
+        }
+        if (!bFound)
+        {
+            SelectedVMKey.Empty();
+        }
+    }
+
     BuildDetailPanel();
 }
 

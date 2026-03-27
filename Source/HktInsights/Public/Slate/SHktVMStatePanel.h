@@ -6,7 +6,8 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/SListView.h"
 
-class SHktInsightTable;
+class STextBlock;
+class SVerticalBox;
 
 /** Entity 행: 해당 entity에서 실행 중인 VM 요약 */
 struct FHktVMEntityRow
