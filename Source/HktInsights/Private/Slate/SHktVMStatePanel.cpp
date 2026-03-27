@@ -2,6 +2,8 @@
 
 #include "Slate/SHktVMStatePanel.h"
 #include "HktCoreDataCollector.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSplitter.h"
@@ -13,6 +15,7 @@
 namespace VMColors
 {
     static const FLinearColor EntityKey(0.4f, 0.85f, 1.0f);      // Cyan
+    static const FLinearColor EntityDim(0.55f, 0.7f, 0.8f);      // Dim cyan (VM 없는 entity)
     static const FLinearColor VMKey(0.85f, 0.7f, 1.0f);          // Light purple
     static const FLinearColor Header(0.7f, 0.7f, 0.75f);         // Gray
     static const FLinearColor Value(0.88f, 0.88f, 0.88f);        // Light gray
@@ -35,7 +38,7 @@ static FSlateColor GetStatusColor(const FString& Status)
 }
 
 // ============================================================================
-// Construct
+// Construct / Destruct
 // ============================================================================
 
 SHktVMStatePanel::~SHktVMStatePanel()
@@ -51,14 +54,70 @@ void SHktVMStatePanel::Construct(const FArguments& InArgs)
     [
         SNew(SVerticalBox)
 
-        // ── 헤더 바: 요약 ──
+        // ── 헤더 바: Source 선택 + 요약 ──
         + SVerticalBox::Slot()
         .AutoHeight()
         .Padding(4.f)
         [
-            SAssignNew(SummaryText, STextBlock)
-            .Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
-            .ColorAndOpacity(FSlateColor(VMColors::Header))
+            SNew(SHorizontalBox)
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0, 0, 4, 0)
+            [
+                SNew(STextBlock)
+                .Text(LOCTEXT("SourceLabel", "Source:"))
+                .ColorAndOpacity(FSlateColor(VMColors::FieldName))
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(0, 0, 12, 0)
+            [
+                SNew(SComboBox<TSharedPtr<FString>>)
+                .OptionsSource(&SourceOptions)
+                .OnSelectionChanged_Lambda([this](TSharedPtr<FString> Selected, ESelectInfo::Type)
+                {
+                    if (Selected.IsValid())
+                    {
+                        SelectedSource = *Selected;
+                        CachedVersion = 0;
+                        RefreshData();
+                    }
+                })
+                .OnGenerateWidget_Lambda([](TSharedPtr<FString> Item)
+                {
+                    return SNew(STextBlock).Text(FText::FromString(*Item));
+                })
+                [
+                    SNew(STextBlock)
+                    .Text_Lambda([this]() -> FText
+                    {
+                        return FText::FromString(SelectedSource.IsEmpty() ? TEXT("(auto)") : SelectedSource);
+                    })
+                ]
+            ]
+            + SHorizontalBox::Slot()
+            .FillWidth(1.0f)
+            .VAlign(VAlign_Center)
+            [
+                SAssignNew(SummaryText, STextBlock)
+                .Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+                .ColorAndOpacity(FSlateColor(VMColors::Header))
+            ]
+        ]
+
+        // ── 필터 바 ──
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(4, 0, 4, 4)
+        [
+            SNew(SSearchBox)
+            .HintText(LOCTEXT("FilterHint", "Filter entities..."))
+            .OnTextChanged_Lambda([this](const FText& Text)
+            {
+                FilterText = Text.ToString();
+                RefreshData();
+            })
         ]
 
         // ── 메인: 상단(Entity + VM 리스트) / 하단(상세) ──
@@ -151,6 +210,7 @@ void SHktVMStatePanel::Construct(const FArguments& InArgs)
     ];
 
     CachedVersion = FHktCoreDataCollector::Get().GetVersion();
+    RebuildSourceOptions();
     RefreshData();
 
     RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateLambda(
@@ -160,10 +220,50 @@ void SHktVMStatePanel::Construct(const FArguments& InArgs)
             if (CurrentVersion != CachedVersion)
             {
                 CachedVersion = CurrentVersion;
+                RebuildSourceOptions();
                 RefreshData();
             }
             return EActiveTimerReturnType::Continue;
         }));
+}
+
+// ============================================================================
+// Source Options
+// ============================================================================
+
+void SHktVMStatePanel::RebuildSourceOptions()
+{
+    TArray<FString> Categories = FHktCoreDataCollector::Get().GetCategories();
+    TArray<FString> WsSources;
+    for (const FString& Cat : Categories)
+    {
+        if (Cat.StartsWith(TEXT("WorldState.")))
+        {
+            WsSources.AddUnique(Cat.Mid(11));
+        }
+    }
+
+    bool bChanged = WsSources.Num() != SourceOptions.Num();
+    if (!bChanged)
+    {
+        for (int32 i = 0; i < WsSources.Num(); ++i)
+        {
+            if (*SourceOptions[i] != WsSources[i]) { bChanged = true; break; }
+        }
+    }
+
+    if (bChanged)
+    {
+        SourceOptions.Reset();
+        for (const FString& S : WsSources)
+        {
+            SourceOptions.Add(MakeShared<FString>(S));
+        }
+        if (SelectedSource.IsEmpty() && SourceOptions.Num() > 0)
+        {
+            SelectedSource = *SourceOptions[0];
+        }
+    }
 }
 
 // ============================================================================
@@ -172,20 +272,56 @@ void SHktVMStatePanel::Construct(const FArguments& InArgs)
 
 void SHktVMStatePanel::RefreshData()
 {
-    TArray<TPair<FString, FString>> Entries = FHktCoreDataCollector::Get().GetEntries(TEXT("VMDetail"));
+    if (SelectedSource.IsEmpty())
+    {
+        RebuildSourceOptions();
+        if (SelectedSource.IsEmpty()) return;
+    }
 
-    // 파싱: E_* → Entity 행, VM_* → VM 행
+    // ── 1. WorldState에서 전체 Entity 목록 읽기 ──
+    const FString WsCategory = FString::Printf(TEXT("WorldState.%s"), *SelectedSource);
+    TArray<TPair<FString, FString>> WsEntries = FHktCoreDataCollector::Get().GetEntries(WsCategory);
+
+    // Entity 목록 파싱
     TMap<FString, TSharedPtr<FHktVMEntityRow>> NewEntityMap;
+    for (const auto& Entry : WsEntries)
+    {
+        if (!Entry.Key.StartsWith(TEXT("E_"))) continue;
+
+        TSharedPtr<FHktVMEntityRow> Row = MakeShared<FHktVMEntityRow>();
+        Row->EntityKey = Entry.Key;
+        Row->VMCount = 0;
+
+        // DebugName 파싱
+        TArray<FString> Segments;
+        Entry.Value.ParseIntoArray(Segments, TEXT("|"), true);
+        for (FString& Seg : Segments)
+        {
+            Seg.TrimStartAndEndInline();
+            if (Seg.StartsWith(TEXT("DebugName=")))
+            {
+                Row->DebugName = Seg.Mid(10);
+                break;
+            }
+        }
+
+        NewEntityMap.Add(Entry.Key, Row);
+    }
+
+    // ── 2. VMDetail에서 VM 데이터 읽기 ──
+    TArray<TPair<FString, FString>> VMEntries = FHktCoreDataCollector::Get().GetEntries(TEXT("VMDetail"));
+
+    // Entity별 VM 요약 (VMDetail의 E_ 행)
+    TMap<FString, TPair<int32, FString>> VMSummaryMap;  // EntityKey → (VMCount, VMNames)
     AllVMRows.Reset();
 
-    for (const auto& Entry : Entries)
+    for (const auto& Entry : VMEntries)
     {
         if (Entry.Key.StartsWith(TEXT("E_")))
         {
-            // Entity 요약 행: VMCount=N | Names=Tag1,Tag2
-            TSharedPtr<FHktVMEntityRow> Row = MakeShared<FHktVMEntityRow>();
-            Row->EntityKey = Entry.Key;
-
+            // VMDetail Entity 요약: VMCount=N | Names=Tag1,Tag2
+            int32 Count = 0;
+            FString Names;
             TArray<FString> Segments;
             Entry.Value.ParseIntoArray(Segments, TEXT("|"), true);
             for (FString& Seg : Segments)
@@ -196,15 +332,15 @@ void SHktVMStatePanel::RefreshData()
                 {
                     FString Field = Seg.Left(EqIdx);
                     FString Val = Seg.Mid(EqIdx + 1);
-                    if (Field == TEXT("VMCount"))     Row->VMCount = FCString::Atoi(*Val);
-                    else if (Field == TEXT("Names"))  Row->VMNames = Val;
+                    if (Field == TEXT("VMCount"))  Count = FCString::Atoi(*Val);
+                    else if (Field == TEXT("Names"))  Names = Val;
                 }
             }
-            NewEntityMap.Add(Entry.Key, Row);
+            VMSummaryMap.Add(Entry.Key, TPair<int32, FString>(Count, Names));
         }
         else if (Entry.Key.StartsWith(TEXT("VM_")))
         {
-            // VM 상세 행: Field=Value | Field=Value | ...
+            // VM 상세 행
             TSharedPtr<FHktVMRow> Row = MakeShared<FHktVMRow>();
             Row->VMKey = Entry.Key;
 
@@ -216,13 +352,10 @@ void SHktVMStatePanel::RefreshData()
                 int32 EqIdx;
                 if (Seg.FindChar(TEXT('='), EqIdx) && EqIdx > 0)
                 {
-                    FString Field = Seg.Left(EqIdx);
-                    FString Val = Seg.Mid(EqIdx + 1);
-                    Row->Props.Add(Field, Val);
+                    Row->Props.Add(Seg.Left(EqIdx), Seg.Mid(EqIdx + 1));
                 }
             }
 
-            // Src 필드로 EntityKey 설정
             if (const FString* Src = Row->Props.Find(TEXT("Src")))
             {
                 Row->EntityKey = FString::Printf(TEXT("E_%s"), **Src);
@@ -232,10 +365,27 @@ void SHktVMStatePanel::RefreshData()
         }
     }
 
-    // Entity 리스트 갱신
+    // ── 3. WorldState entity에 VM 요약 병합 ──
+    for (auto& KV : VMSummaryMap)
+    {
+        if (TSharedPtr<FHktVMEntityRow>* EntityRow = NewEntityMap.Find(KV.Key))
+        {
+            (*EntityRow)->VMCount = KV.Value.Key;
+            (*EntityRow)->VMNames = KV.Value.Value;
+        }
+    }
+
+    // ── 4. Entity 리스트 구성 (필터 적용) ──
     EntityRows.Reset();
     for (auto& KV : NewEntityMap)
     {
+        if (!FilterText.IsEmpty())
+        {
+            bool bMatch = KV.Value->EntityKey.Contains(FilterText)
+                || KV.Value->DebugName.Contains(FilterText)
+                || KV.Value->VMNames.Contains(FilterText);
+            if (!bMatch) continue;
+        }
         EntityRows.Add(KV.Value);
     }
     EntityRows.Sort([](const TSharedPtr<FHktVMEntityRow>& A, const TSharedPtr<FHktVMEntityRow>& B)
@@ -247,7 +397,7 @@ void SHktVMStatePanel::RefreshData()
 
     // 요약 텍스트
     SummaryText->SetText(FText::FromString(
-        FString::Printf(TEXT("Active VMs: %d  |  Entities: %d"), AllVMRows.Num(), EntityRows.Num())));
+        FString::Printf(TEXT("Active VMs: %d  |  Entities: %d"), AllVMRows.Num(), NewEntityMap.Num())));
 
     EntityListView->RequestListRefresh();
 
@@ -256,13 +406,11 @@ void SHktVMStatePanel::RefreshData()
     {
         if (!NewEntityMap.Contains(SelectedEntityKey))
         {
-            // 선택된 entity가 제거됨
             SelectedEntityKey.Empty();
             SelectedVMKey.Empty();
         }
         else
         {
-            // 선택 복원 (TSharedPtr 재생성되었으므로 SListView에 알려줌)
             for (const auto& Row : EntityRows)
             {
                 if (Row->EntityKey == SelectedEntityKey)
@@ -333,15 +481,25 @@ TSharedRef<ITableRow> SHktVMStatePanel::OnGenerateEntityRow(
     TSharedPtr<FHktVMEntityRow> Item,
     const TSharedRef<STableViewBase>& OwnerTable)
 {
-    FString Label = FString::Printf(TEXT("%s  (%d VMs)  %s"),
-        *Item->EntityKey, Item->VMCount, *Item->VMNames);
+    // 표시: "E_1  [Goblin]  (2 VMs) Attack,Move"  또는  "E_3  [NPC]"
+    FString Label = Item->EntityKey;
+    if (!Item->DebugName.IsEmpty())
+    {
+        Label += FString::Printf(TEXT("  [%s]"), *Item->DebugName);
+    }
+    if (Item->VMCount > 0)
+    {
+        Label += FString::Printf(TEXT("  (%d VMs) %s"), Item->VMCount, *Item->VMNames);
+    }
+
+    FLinearColor Color = (Item->VMCount > 0) ? VMColors::EntityKey : VMColors::EntityDim;
 
     return SNew(STableRow<TSharedPtr<FHktVMEntityRow>>, OwnerTable)
     [
         SNew(STextBlock)
         .Text(FText::FromString(Label))
         .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-        .ColorAndOpacity(FSlateColor(VMColors::EntityKey))
+        .ColorAndOpacity(FSlateColor(Color))
         .Margin(FMargin(4, 2))
     ];
 }
@@ -387,12 +545,22 @@ void SHktVMStatePanel::BuildDetailPanel()
 
     if (SelectedVMKey.IsEmpty())
     {
+        FText Hint = SelectedEntityKey.IsEmpty()
+            ? LOCTEXT("NoEntitySelection", "Select an entity to view its VMs")
+            : LOCTEXT("NoVMSelection", "No active VMs for this entity");
+
+        // 선택된 entity가 있고 VM이 FilteredVMRows에 있으면 VM 선택 안내
+        if (!SelectedEntityKey.IsEmpty() && FilteredVMRows.Num() > 0)
+        {
+            Hint = LOCTEXT("SelectVM", "Select a VM to view details");
+        }
+
         DetailContainer->AddSlot()
         .AutoHeight()
         .Padding(4.f)
         [
             SNew(STextBlock)
-            .Text(LOCTEXT("NoVMSelection", "Select a VM to view details"))
+            .Text(Hint)
             .ColorAndOpacity(FSlateColor(VMColors::Dim))
             .Font(FCoreStyle::GetDefaultFontStyle("Italic", 9))
         ];
