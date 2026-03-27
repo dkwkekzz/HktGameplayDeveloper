@@ -9,7 +9,7 @@
 class STextBlock;
 class SVerticalBox;
 
-/** Entity 행: WorldState의 전체 entity + VM 요약 */
+/** Entity 행: WorldState의 전체 entity + VM 요약 (stable pointer, in-place 갱신) */
 struct FHktVMEntityRow
 {
     FString EntityKey;     // "E_1"
@@ -18,7 +18,7 @@ struct FHktVMEntityRow
     FString VMNames;       // "Attack,Move"
 };
 
-/** VM 행: 개별 VM의 모든 프로퍼티 */
+/** VM 행: 개별 VM의 모든 프로퍼티 (stable pointer, Props만 in-place 갱신) */
 struct FHktVMRow
 {
     FString VMKey;         // "VM_0"
@@ -30,12 +30,11 @@ struct FHktVMRow
  * SHktVMStatePanel
  *
  * 전체 Entity 목록에서 선택한 entity의 VM 상태를 상세히 표시하는 3-pane 뷰어.
- * - 좌: Entity 리스트 (WorldState의 전체 entity, VM 개수 표시)
+ * - 좌: Entity 리스트 (WorldState 전체 entity, VM 개수 표시)
  * - 우: 선택된 entity의 VM 목록
- * - 하: 선택된 VM의 상세 정보 (레지스터, 대기 상태, 컨텍스트 파라미터 등)
+ * - 하: 선택된 VM의 상세 정보 (TAttribute 람다로 실시간 갱신)
  *
- * Entity 목록: "WorldState.{Source}" 카테고리
- * VM 데이터: "VMDetail" 카테고리 (on-demand)
+ * Entity/VM 행은 stable pointer를 유지하고 값만 in-place 갱신하여 깜빡임 방지.
  */
 class HKTINSIGHTS_API SHktVMStatePanel : public SCompoundWidget
 {
@@ -49,6 +48,7 @@ public:
 private:
     void RebuildSourceOptions();
     void RefreshData();
+    void RebuildFilteredEntityRows();
     void RebuildVMList();
     void BuildDetailPanel();
 
@@ -61,20 +61,24 @@ private:
     TArray<TSharedPtr<FString>> SourceOptions;
     FString SelectedSource;
 
-    // Entity 데이터
-    TArray<TSharedPtr<FHktVMEntityRow>> EntityRows;
+    // Entity 데이터 (stable pointer)
+    TMap<FString, TSharedPtr<FHktVMEntityRow>> EntityRowMap;
+    TArray<TSharedPtr<FHktVMEntityRow>> AllEntityRows;
+    TArray<TSharedPtr<FHktVMEntityRow>> FilteredEntityRows;
     TSharedPtr<SListView<TSharedPtr<FHktVMEntityRow>>> EntityListView;
     FString SelectedEntityKey;
     FString FilterText;
 
-    // VM 데이터
-    TArray<TSharedPtr<FHktVMRow>> AllVMRows;        // 전체 VM
-    TArray<TSharedPtr<FHktVMRow>> FilteredVMRows;   // 선택된 entity의 VM
+    // VM 데이터 (stable pointer)
+    TMap<FString, TSharedPtr<FHktVMRow>> VMRowMap;
+    TArray<TSharedPtr<FHktVMRow>> AllVMRows;
+    TArray<TSharedPtr<FHktVMRow>> FilteredVMRows;
     TSharedPtr<SListView<TSharedPtr<FHktVMRow>>> VMListView;
     FString SelectedVMKey;
 
     // 상세 패널
     TSharedPtr<SVerticalBox> DetailContainer;
+    FString DetailBoundVMKey;  // 현재 Detail에 바인딩된 VM
 
     // 요약 텍스트
     TSharedPtr<STextBlock> SummaryText;
