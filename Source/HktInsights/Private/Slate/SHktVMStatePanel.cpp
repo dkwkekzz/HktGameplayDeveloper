@@ -152,7 +152,6 @@ void SHktVMStatePanel::Construct(const FArguments& InArgs)
 
     CachedVersion = FHktCoreDataCollector::Get().GetVersion();
     RefreshData();
-    BuildDetailPanel();
 
     RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateLambda(
         [this](double, float) -> EActiveTimerReturnType
