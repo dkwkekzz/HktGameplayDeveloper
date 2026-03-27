@@ -38,8 +38,15 @@ static FSlateColor GetStatusColor(const FString& Status)
 // Construct
 // ============================================================================
 
+SHktVMStatePanel::~SHktVMStatePanel()
+{
+    FHktCoreDataCollector::Get().DisableCollection(TEXT("VMDetail"));
+}
+
 void SHktVMStatePanel::Construct(const FArguments& InArgs)
 {
+    FHktCoreDataCollector::Get().EnableCollection(TEXT("VMDetail"));
+
     ChildSlot
     [
         SNew(SVerticalBox)
