@@ -299,6 +299,7 @@ void SHktVMStatePanel::RefreshData()
     TArray<TPair<FString, FString>> WsEntries = FHktCoreDataCollector::Get().GetEntries(WsCategory);
 
     TSet<FString> CurrentEntityKeys;
+    bool bEntityAdded = false;
     for (const auto& Entry : WsEntries)
     {
         if (!Entry.Key.StartsWith(TEXT("E_"))) continue;
@@ -330,6 +331,7 @@ void SHktVMStatePanel::RefreshData()
             Row->EntityKey = Entry.Key;
             Row->DebugName = DebugName;
             EntityRowMap.Add(Entry.Key, Row);
+            bEntityAdded = true;
         }
     }
 
@@ -349,7 +351,7 @@ void SHktVMStatePanel::RefreshData()
         {
             EntityRowMap.Remove(Key);
         }
-        if (CurrentEntityKeys.Num() != EntityRowMap.Num())
+        if (bEntityAdded)
         {
             bEntitySetChanged = true;  // 신규 추가 감지
         }
@@ -574,7 +576,7 @@ void SHktVMStatePanel::RebuildVMList()
 
     if (SelectedEntityKey.IsEmpty())
     {
-        FilteredVMRows = AllVMRows;
+        // Entity 미선택 시 VM 리스트 비움
     }
     else
     {
