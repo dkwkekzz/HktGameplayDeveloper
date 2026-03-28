@@ -24,6 +24,11 @@
 			"Name": "HktInsightsEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "HktValidation",
+			"Type": "DeveloperTool",
+			"LoadingPhase": "Default"
 		}
 	],
 	"Plugins": [
