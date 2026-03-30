@@ -425,6 +425,95 @@ static FHktTestResult Test_WaitCollision()
 }
 
 // ============================================================================
+// DispatchEventFrom Test
+// ============================================================================
+
+static FHktTestResult Test_DispatchEventFrom()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+	FHktEntityId Self = H.CreateEntity();
+	FHktEntityId Target = H.CreateEntity();
+	FHktEntityId NewSource = H.CreateEntity();
+
+	FGameplayTag DispatchTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Event.Test.DispatchFrom")), false);
+
+	if (!DispatchTag.IsValid())
+		return FHktTestResult::Pass(TEXT("DispatchEventFrom (skipped: tag not registered)"));
+
+	auto Program = FHktStoryBuilder::Create(EntityTestTag())
+		.LoadConst(Reg::R0, static_cast<int32>(NewSource))
+		.DispatchEventFrom(DispatchTag, Reg::R0)
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, Self, Target);
+	H.Teardown();
+
+	if (H.GetRuntime().PendingDispatchedEvents.Num() != 1)
+		return FHktTestResult::Fail(TEXT("DispatchEventFrom"), TEXT("Should have 1 pending event"));
+
+	const FHktEvent& Evt = H.GetRuntime().PendingDispatchedEvents[0];
+	if (Evt.SourceEntity != NewSource)
+		return FHktTestResult::Fail(TEXT("DispatchEventFrom"), TEXT("SourceEntity should be NewSource"));
+
+	return FHktTestResult::Pass(TEXT("DispatchEventFrom"));
+}
+
+// ============================================================================
+// ReadProperty / WriteProperty / WriteConst Tests
+// ============================================================================
+
+static FHktTestResult Test_ReadProperty_WriteProperty()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+
+	TMap<uint16, int32> Props;
+	Props.Add(PropertyId::Health, 100);
+	FHktEntityId E = H.CreateEntityWithProperties(Props);
+
+	auto Program = FHktStoryBuilder::Create(EntityTestTag())
+		.ReadProperty(Reg::R0, PropertyId::Health)
+		.LoadConst(Reg::R1, 75)
+		.WriteProperty(PropertyId::Health, Reg::R1)
+		.ReadProperty(Reg::R2, PropertyId::Health)
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R0) != 100)
+		return FHktTestResult::Fail(TEXT("ReadProperty_WriteProperty"), TEXT("Initial Health should be 100"));
+	if (H.GetRegister(Reg::R2) != 75)
+		return FHktTestResult::Fail(TEXT("ReadProperty_WriteProperty"), TEXT("Updated Health should be 75"));
+
+	return FHktTestResult::Pass(TEXT("ReadProperty_WriteProperty"));
+}
+
+static FHktTestResult Test_WriteConst()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+	FHktEntityId E = H.CreateEntity();
+
+	auto Program = FHktStoryBuilder::Create(EntityTestTag())
+		.WriteConst(PropertyId::Health, 500)
+		.ReadProperty(Reg::R0, PropertyId::Health)
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R0) != 500)
+		return FHktTestResult::Fail(TEXT("WriteConst"), TEXT("Health should be 500"));
+
+	return FHktTestResult::Pass(TEXT("WriteConst"));
+}
+
+// ============================================================================
 // Public
 // ============================================================================
 
@@ -442,7 +531,10 @@ FHktTestReport RunEntityTests()
 	Report.Add(Test_SetOwnerUid_ClearOwnerUid());
 	Report.Add(Test_DispatchEvent());
 	Report.Add(Test_DispatchEventTo());
+	Report.Add(Test_DispatchEventFrom());
 	Report.Add(Test_WaitCollision());
+	Report.Add(Test_ReadProperty_WriteProperty());
+	Report.Add(Test_WriteConst());
 	return Report;
 }
 
