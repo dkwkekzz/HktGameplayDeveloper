@@ -1,7 +1,7 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
-#include "HktValidationLog.h"
-#include "HktValidationTypes.h"
+#include "HktAutomationTestsLog.h"
+#include "HktAutomationTestsTypes.h"
 #include "HktStoryTypes.h"
 #include "HktStoryValidator.h"
 #include "HktStoryRegistry.h"

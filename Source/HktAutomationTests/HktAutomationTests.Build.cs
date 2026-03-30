@@ -3,9 +3,9 @@
 using UnrealBuildTool;
 using System.IO;
 
-public class HktValidation : ModuleRules
+public class HktAutomationTests : ModuleRules
 {
-    public HktValidation(ReadOnlyTargetRules Target) : base(Target)
+    public HktAutomationTests(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 

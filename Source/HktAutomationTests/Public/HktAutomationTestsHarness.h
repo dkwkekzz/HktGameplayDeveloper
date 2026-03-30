@@ -16,12 +16,12 @@
 struct FHktVMProgram;
 
 /**
- * FHktValidationTestHarness — Opcode/Story 테스트용 VM 실행 환경
+ * FHktAutomationTestHarness — Opcode/Story 테스트용 VM 실행 환경
  *
  * WorldState + VMProxy + Interpreter를 초기화하고,
  * FHktStoryBuilder로 빌드한 프로그램을 실행/검증하는 유틸리티.
  */
-class HKTVALIDATION_API FHktValidationTestHarness
+class HKTAUTOMATIONTESTS_API FHktAutomationTestHarness
 {
 public:
 	void Setup();

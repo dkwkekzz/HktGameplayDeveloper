@@ -1,8 +1,8 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
-#include "HktValidationLog.h"
-#include "HktValidationTypes.h"
-#include "HktValidationTestHarness.h"
+#include "HktAutomationTestsLog.h"
+#include "HktAutomationTestsTypes.h"
+#include "HktAutomationTestsHarness.h"
 #include "HktStoryBuilder.h"
 #include "VM/HktVMProgram.h"
 
@@ -30,7 +30,7 @@ static FGameplayTag TestStoryTag()
 
 static FHktTestResult Test_Nop()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -52,7 +52,7 @@ static FHktTestResult Test_Nop()
 
 static FHktTestResult Test_Halt()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -71,7 +71,7 @@ static FHktTestResult Test_Halt()
 
 static FHktTestResult Test_Fail()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -90,7 +90,7 @@ static FHktTestResult Test_Fail()
 
 static FHktTestResult Test_Yield()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -116,7 +116,7 @@ static FHktTestResult Test_Yield()
 
 static FHktTestResult Test_YieldSeconds()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -141,7 +141,7 @@ static FHktTestResult Test_YieldSeconds()
 
 static FHktTestResult Test_Jump()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -169,7 +169,7 @@ static FHktTestResult Test_Jump()
 
 static FHktTestResult Test_JumpIf_JumpIfNot()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
