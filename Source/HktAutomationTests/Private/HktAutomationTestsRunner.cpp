@@ -1,8 +1,8 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
-#include "HktValidationLog.h"
-#include "HktValidationTypes.h"
-#include "HktValidationTestHarness.h"
+#include "HktAutomationTestsLog.h"
+#include "HktAutomationTestsTypes.h"
+#include "HktAutomationTestsHarness.h"
 #include "HktStoryBuilder.h"
 #include "HktStoryValidator.h"
 #include "HktStoryRegistry.h"
@@ -22,45 +22,45 @@ namespace HktStoryIntegrityTests
 	FHktTestReport RunAllIntegrityTests();
 }
 
-namespace HktValidationRunner
+namespace HktAutomationTestsRunner
 {
 	static FHktTestReport LastReport;
 
 	static void PrintReport(const FHktTestReport& Report)
 	{
-		UE_LOG(LogHktValidation, Log, TEXT(""));
-		UE_LOG(LogHktValidation, Log, TEXT("============================================"));
-		UE_LOG(LogHktValidation, Log, TEXT("  HktValidation Report: %d/%d PASSED"),
+		UE_LOG(LogHktAutomationTests, Log, TEXT(""));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("============================================"));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("  HktAutomationTests Report: %d/%d PASSED"),
 			Report.PassCount(), Report.TotalCount());
-		UE_LOG(LogHktValidation, Log, TEXT("============================================"));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("============================================"));
 
 		for (const FHktTestResult& R : Report.Results)
 		{
 			if (R.bPassed)
 			{
-				UE_LOG(LogHktValidation, Log, TEXT("  [PASS] %s"), *R.TestName);
+				UE_LOG(LogHktAutomationTests, Log, TEXT("  [PASS] %s"), *R.TestName);
 			}
 			else
 			{
-				UE_LOG(LogHktValidation, Error, TEXT("  [FAIL] %s — %s"), *R.TestName, *R.Message);
+				UE_LOG(LogHktAutomationTests, Error, TEXT("  [FAIL] %s — %s"), *R.TestName, *R.Message);
 			}
 		}
 
-		UE_LOG(LogHktValidation, Log, TEXT("============================================"));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("============================================"));
 		if (Report.AllPassed())
 		{
-			UE_LOG(LogHktValidation, Log, TEXT("  ALL TESTS PASSED"));
+			UE_LOG(LogHktAutomationTests, Log, TEXT("  ALL TESTS PASSED"));
 		}
 		else
 		{
-			UE_LOG(LogHktValidation, Error, TEXT("  %d TESTS FAILED"), Report.FailCount());
+			UE_LOG(LogHktAutomationTests, Error, TEXT("  %d TESTS FAILED"), Report.FailCount());
 		}
-		UE_LOG(LogHktValidation, Log, TEXT("============================================"));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("============================================"));
 	}
 
 	void RunOpcodeTests()
 	{
-		UE_LOG(LogHktValidation, Log, TEXT("[HktValidation] Running Opcode tests..."));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running Opcode tests..."));
 
 		FHktTestReport Report;
 		Report.Append(HktOpcodeTests::RunControlFlowTests());
@@ -74,7 +74,7 @@ namespace HktValidationRunner
 
 	void RunStoryTests()
 	{
-		UE_LOG(LogHktValidation, Log, TEXT("[HktValidation] Running Story integrity tests..."));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running Story integrity tests..."));
 
 		FHktTestReport Report = HktStoryIntegrityTests::RunAllIntegrityTests();
 
@@ -84,7 +84,7 @@ namespace HktValidationRunner
 
 	void RunAllTests()
 	{
-		UE_LOG(LogHktValidation, Log, TEXT("[HktValidation] Running ALL tests..."));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running ALL tests..."));
 
 		FHktTestReport Report;
 		Report.Append(HktOpcodeTests::RunControlFlowTests());
@@ -101,7 +101,7 @@ namespace HktValidationRunner
 	{
 		if (LastReport.TotalCount() == 0)
 		{
-			UE_LOG(LogHktValidation, Warning, TEXT("No test results. Run hkt.validation.run first."));
+			UE_LOG(LogHktAutomationTests, Warning, TEXT("No test results. Run hkt.automation.run first."));
 			return;
 		}
 		PrintReport(LastReport);

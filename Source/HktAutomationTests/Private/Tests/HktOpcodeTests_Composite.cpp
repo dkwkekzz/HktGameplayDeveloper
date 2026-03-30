@@ -1,8 +1,8 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
-#include "HktValidationLog.h"
-#include "HktValidationTypes.h"
-#include "HktValidationTestHarness.h"
+#include "HktAutomationTestsLog.h"
+#include "HktAutomationTestsTypes.h"
+#include "HktAutomationTestsHarness.h"
 #include "HktStoryBuilder.h"
 #include "HktCoreProperties.h"
 #include "VM/HktVMProgram.h"
@@ -22,7 +22,7 @@ static FGameplayTag CompositeTestTag()
 
 static FHktTestResult Test_GetPosition_SetPosition()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> SelfProps;
@@ -54,7 +54,7 @@ static FHktTestResult Test_GetPosition_SetPosition()
 
 static FHktTestResult Test_MoveToward()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	FHktEntityId Self = H.CreateEntity();
@@ -86,7 +86,7 @@ static FHktTestResult Test_MoveToward()
 
 static FHktTestResult Test_MoveForward()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> SelfProps;
@@ -117,7 +117,7 @@ static FHktTestResult Test_MoveForward()
 
 static FHktTestResult Test_StopMovement()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> SelfProps;
@@ -141,7 +141,7 @@ static FHktTestResult Test_StopMovement()
 
 static FHktTestResult Test_ApplyDamage()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	FHktEntityId Self = H.CreateEntity();
@@ -169,7 +169,7 @@ static FHktTestResult Test_ApplyDamage()
 
 static FHktTestResult Test_ApplyDamage_ClampZero()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	FHktEntityId Self = H.CreateEntity();
@@ -197,7 +197,7 @@ static FHktTestResult Test_ApplyDamage_ClampZero()
 
 static FHktTestResult Test_ApplyDamage_MinDamage()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	FHktEntityId Self = H.CreateEntity();
@@ -225,7 +225,7 @@ static FHktTestResult Test_ApplyDamage_MinDamage()
 
 static FHktTestResult Test_ForEachInRadius()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> CenterProps;
@@ -267,7 +267,7 @@ static FHktTestResult Test_ForEachInRadius()
 
 static FHktTestResult Test_ForEachInRadius_Empty()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> CenterProps;
@@ -301,7 +301,7 @@ static FHktTestResult Test_ForEachInRadius_Empty()
 
 static FHktTestResult Test_Precondition_Pass()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 	FHktEntityId Target = H.CreateEntity();
@@ -340,7 +340,7 @@ static FHktTestResult Test_Precondition_Pass()
 
 static FHktTestResult Test_Precondition_Fail()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 
@@ -374,7 +374,7 @@ static FHktTestResult Test_Precondition_Fail()
 
 static FHktTestResult Test_Precondition_ReadOnly()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> Props;
@@ -422,7 +422,7 @@ static FHktTestResult Test_Precondition_ReadOnly()
 
 static FHktTestResult Test_EmptyProgram_AutoHalt()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -444,7 +444,7 @@ static FHktTestResult Test_EmptyProgram_AutoHalt()
 
 static FHktTestResult Test_LabelResolution_ForwardBackward()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 

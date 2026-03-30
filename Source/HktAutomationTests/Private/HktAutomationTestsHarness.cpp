@@ -1,9 +1,9 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
-#include "HktValidationTestHarness.h"
+#include "HktAutomationTestsHarness.h"
 #include "VM/HktVMProgram.h"
 
-void FHktValidationTestHarness::Setup()
+void FHktAutomationTestHarness::Setup()
 {
 	WorldState.Initialize();
 	VMProxy.Initialize(WorldState);
@@ -16,7 +16,7 @@ void FHktValidationTestHarness::Setup()
 	Runtime.Context = &Context;
 }
 
-void FHktValidationTestHarness::Teardown()
+void FHktAutomationTestHarness::Teardown()
 {
 	Runtime.Program = nullptr;
 	Runtime.Context = nullptr;
@@ -24,12 +24,12 @@ void FHktValidationTestHarness::Teardown()
 	Context.VMProxy = nullptr;
 }
 
-FHktEntityId FHktValidationTestHarness::CreateEntity()
+FHktEntityId FHktAutomationTestHarness::CreateEntity()
 {
 	return WorldState.AllocateEntity();
 }
 
-FHktEntityId FHktValidationTestHarness::CreateEntityWithProperties(const TMap<uint16, int32>& Props)
+FHktEntityId FHktAutomationTestHarness::CreateEntityWithProperties(const TMap<uint16, int32>& Props)
 {
 	FHktEntityId Entity = WorldState.AllocateEntity();
 	for (const auto& Pair : Props)
@@ -39,7 +39,7 @@ FHktEntityId FHktValidationTestHarness::CreateEntityWithProperties(const TMap<ui
 	return Entity;
 }
 
-EVMStatus FHktValidationTestHarness::ExecuteProgram(
+EVMStatus FHktAutomationTestHarness::ExecuteProgram(
 	TSharedPtr<FHktVMProgram> Program,
 	FHktEntityId Source,
 	FHktEntityId Target,
@@ -113,13 +113,13 @@ EVMStatus FHktValidationTestHarness::ExecuteProgram(
 	return Runtime.Status;
 }
 
-EVMStatus FHktValidationTestHarness::ExecuteTick()
+EVMStatus FHktAutomationTestHarness::ExecuteTick()
 {
 	VMProxy.ResetDirtyIndices(WorldState);
 	return Interpreter.Execute(Runtime);
 }
 
-void FHktValidationTestHarness::InjectCollisionEvent(FHktEntityId HitEntity)
+void FHktAutomationTestHarness::InjectCollisionEvent(FHktEntityId HitEntity)
 {
 	if (Runtime.EventWait.Type == EWaitEventType::Collision)
 	{
@@ -129,7 +129,7 @@ void FHktValidationTestHarness::InjectCollisionEvent(FHktEntityId HitEntity)
 	}
 }
 
-void FHktValidationTestHarness::InjectMoveEndEvent()
+void FHktAutomationTestHarness::InjectMoveEndEvent()
 {
 	if (Runtime.EventWait.Type == EWaitEventType::MoveEnd)
 	{
@@ -138,7 +138,7 @@ void FHktValidationTestHarness::InjectMoveEndEvent()
 	}
 }
 
-void FHktValidationTestHarness::AdvanceTimer(float DeltaSeconds)
+void FHktAutomationTestHarness::AdvanceTimer(float DeltaSeconds)
 {
 	if (Runtime.EventWait.Type == EWaitEventType::Timer)
 	{
@@ -151,22 +151,22 @@ void FHktValidationTestHarness::AdvanceTimer(float DeltaSeconds)
 	}
 }
 
-int32 FHktValidationTestHarness::GetRegister(RegisterIndex Idx) const
+int32 FHktAutomationTestHarness::GetRegister(RegisterIndex Idx) const
 {
 	return Runtime.GetReg(Idx);
 }
 
-int32 FHktValidationTestHarness::GetProperty(FHktEntityId Entity, uint16 PropId) const
+int32 FHktAutomationTestHarness::GetProperty(FHktEntityId Entity, uint16 PropId) const
 {
 	return WorldState.GetProperty(Entity, PropId);
 }
 
-bool FHktValidationTestHarness::HasTag(FHktEntityId Entity, const FGameplayTag& Tag) const
+bool FHktAutomationTestHarness::HasTag(FHktEntityId Entity, const FGameplayTag& Tag) const
 {
 	return WorldState.HasTag(Entity, Tag);
 }
 
-int32 FHktValidationTestHarness::GetEntityCount() const
+int32 FHktAutomationTestHarness::GetEntityCount() const
 {
 	return WorldState.ActiveCount;
 }

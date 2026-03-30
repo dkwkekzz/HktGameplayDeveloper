@@ -1,12 +1,12 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
 #include "Modules/ModuleManager.h"
-#include "HktValidationLog.h"
+#include "HktAutomationTestsLog.h"
 
-DEFINE_LOG_CATEGORY(LogHktValidation);
+DEFINE_LOG_CATEGORY(LogHktAutomationTests);
 
 // Forward declarations
-namespace HktValidationRunner
+namespace HktAutomationTestsRunner
 {
 	void RunAllTests();
 	void RunOpcodeTests();
@@ -15,9 +15,9 @@ namespace HktValidationRunner
 }
 
 /**
- * HktValidation 모듈 — 자동 테스트 환경
+ * HktAutomationTests 모듈 — 자동 테스트 환경
  */
-class FHktValidationModule : public IModuleInterface
+class FHktAutomationTestsModule : public IModuleInterface
 {
 public:
 	virtual void StartupModule() override;
@@ -27,50 +27,50 @@ private:
 	TArray<IConsoleObject*> ConsoleCommands;
 };
 
-IMPLEMENT_MODULE(FHktValidationModule, HktValidation)
+IMPLEMENT_MODULE(FHktAutomationTestsModule, HktAutomationTests)
 
-void FHktValidationModule::StartupModule()
+void FHktAutomationTestsModule::StartupModule()
 {
-	UE_LOG(LogHktValidation, Log, TEXT("[HktValidation] Module starting up"));
+	UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Module starting up"));
 
 	ConsoleCommands.Add(IConsoleManager::Get().RegisterConsoleCommand(
-		TEXT("hkt.validation.run"),
-		TEXT("Run all HktValidation tests (Opcode + Story Integrity)"),
+		TEXT("hkt.automation.run"),
+		TEXT("Run all HktAutomationTests tests (Opcode + Story Integrity)"),
 		FConsoleCommandDelegate::CreateLambda([]()
 		{
-			HktValidationRunner::RunAllTests();
+			HktAutomationTestsRunner::RunAllTests();
 		}),
 		ECVF_Default));
 
 	ConsoleCommands.Add(IConsoleManager::Get().RegisterConsoleCommand(
-		TEXT("hkt.validation.opcodes"),
+		TEXT("hkt.automation.opcodes"),
 		TEXT("Run Opcode validation tests only"),
 		FConsoleCommandDelegate::CreateLambda([]()
 		{
-			HktValidationRunner::RunOpcodeTests();
+			HktAutomationTestsRunner::RunOpcodeTests();
 		}),
 		ECVF_Default));
 
 	ConsoleCommands.Add(IConsoleManager::Get().RegisterConsoleCommand(
-		TEXT("hkt.validation.stories"),
+		TEXT("hkt.automation.stories"),
 		TEXT("Run Story integrity tests only"),
 		FConsoleCommandDelegate::CreateLambda([]()
 		{
-			HktValidationRunner::RunStoryTests();
+			HktAutomationTestsRunner::RunStoryTests();
 		}),
 		ECVF_Default));
 
 	ConsoleCommands.Add(IConsoleManager::Get().RegisterConsoleCommand(
-		TEXT("hkt.validation.report"),
+		TEXT("hkt.automation.report"),
 		TEXT("Print the last validation report"),
 		FConsoleCommandDelegate::CreateLambda([]()
 		{
-			HktValidationRunner::PrintLastReport();
+			HktAutomationTestsRunner::PrintLastReport();
 		}),
 		ECVF_Default));
 }
 
-void FHktValidationModule::ShutdownModule()
+void FHktAutomationTestsModule::ShutdownModule()
 {
 	for (IConsoleObject* Cmd : ConsoleCommands)
 	{
@@ -78,5 +78,5 @@ void FHktValidationModule::ShutdownModule()
 	}
 	ConsoleCommands.Empty();
 
-	UE_LOG(LogHktValidation, Log, TEXT("[HktValidation] Module shut down"));
+	UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Module shut down"));
 }

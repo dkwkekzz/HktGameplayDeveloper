@@ -1,8 +1,8 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
-#include "HktValidationLog.h"
-#include "HktValidationTypes.h"
-#include "HktValidationTestHarness.h"
+#include "HktAutomationTestsLog.h"
+#include "HktAutomationTestsTypes.h"
+#include "HktAutomationTestsHarness.h"
 #include "HktStoryBuilder.h"
 #include "HktCoreProperties.h"
 #include "VM/HktVMProgram.h"
@@ -21,7 +21,7 @@ static FGameplayTag DataTestStoryTag()
 
 static FHktTestResult Test_LoadConst_Small()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -47,7 +47,7 @@ static FHktTestResult Test_LoadConst_Small()
 
 static FHktTestResult Test_LoadConst_Large()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -72,7 +72,7 @@ static FHktTestResult Test_LoadConst_Large()
 
 static FHktTestResult Test_LoadStore_SaveStore()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> Props;
@@ -102,7 +102,7 @@ static FHktTestResult Test_LoadStore_SaveStore()
 
 static FHktTestResult Test_LoadStoreEntity_SaveStoreEntity()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	FHktEntityId Self = H.CreateEntity();
@@ -132,7 +132,7 @@ static FHktTestResult Test_LoadStoreEntity_SaveStoreEntity()
 
 static FHktTestResult Test_Move()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -153,7 +153,7 @@ static FHktTestResult Test_Move()
 
 static FHktTestResult Test_SaveConst()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -174,7 +174,7 @@ static FHktTestResult Test_SaveConst()
 
 static FHktTestResult Test_SaveConstEntity()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 	FHktEntityId Target = H.CreateEntity();
@@ -200,7 +200,7 @@ static FHktTestResult Test_SaveConstEntity()
 
 static FHktTestResult Test_Arithmetic_Basic()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -228,7 +228,7 @@ static FHktTestResult Test_Arithmetic_Basic()
 
 static FHktTestResult Test_Div()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -254,7 +254,7 @@ static FHktTestResult Test_Div()
 
 static FHktTestResult Test_Mod()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -278,7 +278,7 @@ static FHktTestResult Test_Mod()
 
 static FHktTestResult Test_AddImm()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -306,7 +306,7 @@ static FHktTestResult Test_AddImm()
 
 static FHktTestResult Test_Comparisons()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
@@ -338,7 +338,7 @@ static FHktTestResult Test_Comparisons()
 
 static FHktTestResult Test_Comparisons_Extended()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 

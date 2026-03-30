@@ -1,8 +1,8 @@
 // Copyright Hkt Studios, Inc. All Rights Reserved.
 
-#include "HktValidationLog.h"
-#include "HktValidationTypes.h"
-#include "HktValidationTestHarness.h"
+#include "HktAutomationTestsLog.h"
+#include "HktAutomationTestsTypes.h"
+#include "HktAutomationTestsHarness.h"
 #include "HktStoryBuilder.h"
 #include "HktCoreProperties.h"
 #include "VM/HktVMProgram.h"
@@ -21,7 +21,7 @@ static FGameplayTag EntityTestTag()
 
 static FHktTestResult Test_SpawnEntity()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 
@@ -54,7 +54,7 @@ static FHktTestResult Test_SpawnEntity()
 
 static FHktTestResult Test_SpawnEntity_AutoInit()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> SelfProps;
@@ -89,7 +89,7 @@ static FHktTestResult Test_SpawnEntity_AutoInit()
 
 static FHktTestResult Test_DestroyEntity()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 
@@ -118,7 +118,7 @@ static FHktTestResult Test_DestroyEntity()
 
 static FHktTestResult Test_AddTag()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 
@@ -146,7 +146,7 @@ static FHktTestResult Test_AddTag()
 
 static FHktTestResult Test_RemoveTag()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 
@@ -174,7 +174,7 @@ static FHktTestResult Test_RemoveTag()
 
 static FHktTestResult Test_HasTag()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 
@@ -207,7 +207,7 @@ static FHktTestResult Test_HasTag()
 
 static FHktTestResult Test_GetDistance()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	TMap<uint16, int32> Props1;
@@ -240,7 +240,7 @@ static FHktTestResult Test_GetDistance()
 
 static FHktTestResult Test_FindInRadius_Basic()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 
 	// 센터 엔티티 (0,0,0)
@@ -296,7 +296,7 @@ static FHktTestResult Test_FindInRadius_Basic()
 
 static FHktTestResult Test_SetOwnerUid_ClearOwnerUid()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 	FHktEntityId Item = H.CreateEntity();
@@ -324,7 +324,7 @@ static FHktTestResult Test_SetOwnerUid_ClearOwnerUid()
 
 static FHktTestResult Test_DispatchEvent()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 	FHktEntityId Target = H.CreateEntity();
@@ -356,7 +356,7 @@ static FHktTestResult Test_DispatchEvent()
 
 static FHktTestResult Test_DispatchEventTo()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 	FHktEntityId Target = H.CreateEntity();
@@ -392,7 +392,7 @@ static FHktTestResult Test_DispatchEventTo()
 
 static FHktTestResult Test_WaitCollision()
 {
-	FHktValidationTestHarness H;
+	FHktAutomationTestHarness H;
 	H.Setup();
 	FHktEntityId Self = H.CreateEntity();
 
