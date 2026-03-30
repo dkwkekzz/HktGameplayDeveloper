@@ -233,6 +233,219 @@ static FHktTestResult Test_JumpIf_JumpIfNot()
 }
 
 // ============================================================================
+// Structured Control Flow Tests (If/Else/EndIf, Repeat)
+// ============================================================================
+
+static FHktTestResult Test_If_EndIf()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+	FHktEntityId E = H.CreateEntity();
+
+	// If(true) → 블록 실행
+	auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		.LoadConst(Reg::R0, 1)
+		.LoadConst(Reg::R1, 0)
+		.If(Reg::R0)
+			.LoadConst(Reg::R1, 100)
+		.EndIf()
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+
+	if (H.GetRegister(Reg::R1) != 100)
+		return FHktTestResult::Fail(TEXT("If_EndIf"), TEXT("If(true) block should execute"));
+
+	// If(false) → 블록 스킵
+	H.Setup();
+	E = H.CreateEntity();
+
+	Program = FHktStoryBuilder::Create(TestStoryTag())
+		.LoadConst(Reg::R0, 0)
+		.LoadConst(Reg::R1, 50)
+		.If(Reg::R0)
+			.LoadConst(Reg::R1, 100)
+		.EndIf()
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R1) != 50)
+		return FHktTestResult::Fail(TEXT("If_EndIf"), TEXT("If(false) block should be skipped"));
+
+	return FHktTestResult::Pass(TEXT("If_EndIf"));
+}
+
+static FHktTestResult Test_If_Else_EndIf()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+	FHktEntityId E = H.CreateEntity();
+
+	auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		.LoadConst(Reg::R0, 0)  // false
+		.LoadConst(Reg::R1, 0)
+		.If(Reg::R0)
+			.LoadConst(Reg::R1, 10)
+		.Else()
+			.LoadConst(Reg::R1, 20)
+		.EndIf()
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R1) != 20)
+		return FHktTestResult::Fail(TEXT("If_Else_EndIf"), TEXT("Else branch should execute when cond=0"));
+
+	return FHktTestResult::Pass(TEXT("If_Else_EndIf"));
+}
+
+static FHktTestResult Test_IfEqConst()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+	FHktEntityId E = H.CreateEntity();
+
+	auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		.LoadConst(Reg::R0, 42)
+		.LoadConst(Reg::R1, 0)
+		.IfEqConst(Reg::R0, 42)
+			.LoadConst(Reg::R1, 1)
+		.EndIf()
+		.IfEqConst(Reg::R0, 99)
+			.LoadConst(Reg::R1, 2)
+		.EndIf()
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R1) != 1)
+		return FHktTestResult::Fail(TEXT("IfEqConst"), TEXT("IfEqConst(42,42) should enter, IfEqConst(42,99) should skip"));
+
+	return FHktTestResult::Pass(TEXT("IfEqConst"));
+}
+
+static FHktTestResult Test_IfPropertyLe()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+
+	TMap<uint16, int32> Props;
+	Props.Add(PropertyId::Health, 0);
+	FHktEntityId E = H.CreateEntityWithProperties(Props);
+
+	auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		.LoadConst(Reg::R0, 0)
+		.IfPropertyLe(Reg::Self, PropertyId::Health, 0)
+			.LoadConst(Reg::R0, 1)  // Health <= 0 → dead
+		.EndIf()
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R0) != 1)
+		return FHktTestResult::Fail(TEXT("IfPropertyLe"), TEXT("Health=0, IfPropertyLe(Health,0) should enter"));
+
+	return FHktTestResult::Pass(TEXT("IfPropertyLe"));
+}
+
+static FHktTestResult Test_Repeat_EndRepeat()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+	FHktEntityId E = H.CreateEntity();
+
+	// R0를 Repeat(5)로 5번 증가
+	auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		.LoadConst(Reg::R0, 0)
+		.Repeat(5)
+			.AddImm(Reg::R0, Reg::R0, 10)
+		.EndRepeat()
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R0) != 50)
+		return FHktTestResult::Fail(TEXT("Repeat_EndRepeat"), FString::Printf(TEXT("R0 should be 50, got %d"), H.GetRegister(Reg::R0)));
+
+	return FHktTestResult::Pass(TEXT("Repeat_EndRepeat"));
+}
+
+// ============================================================================
+// ScopedReg Tests
+// ============================================================================
+
+static FHktTestResult Test_ScopedReg()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+	FHktEntityId E = H.CreateEntity();
+
+	auto B = FHktStoryBuilder::Create(TestStoryTag());
+	{
+		FHktScopedReg r0(B);
+		FHktScopedReg r1(B);
+		B.LoadConst(r0, 42);
+		B.LoadConst(r1, 99);
+		B.Add(Reg::R5, r0, r1);  // R5 = 42+99 = 141
+	}
+	// r0, r1 은 소멸 → 레지스터 반환됨
+	B.Halt();
+
+	auto Program = B.Build();
+	H.ExecuteProgram(Program, E);
+	H.Teardown();
+
+	if (H.GetRegister(Reg::R5) != 141)
+		return FHktTestResult::Fail(TEXT("ScopedReg"), FString::Printf(TEXT("R5 should be 141, got %d"), H.GetRegister(Reg::R5)));
+
+	return FHktTestResult::Pass(TEXT("ScopedReg"));
+}
+
+static FHktTestResult Test_ScopedRegBlock()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+
+	TMap<uint16, int32> Props;
+	Props.Add(PropertyId::PosX, 100);
+	Props.Add(PropertyId::PosY, 200);
+	Props.Add(PropertyId::PosZ, 300);
+	FHktEntityId Self = H.CreateEntityWithProperties(Props);
+	FHktEntityId Target = H.CreateEntity();
+
+	auto B = FHktStoryBuilder::Create(TestStoryTag());
+	{
+		FHktScopedRegBlock pos(B, 3);
+		B.GetPosition(pos, Reg::Self);
+		B.SetPosition(Reg::Target, pos);
+	}
+	B.Halt();
+
+	auto Program = B.Build();
+	H.ExecuteProgram(Program, Self, Target);
+	H.Teardown();
+
+	if (H.GetProperty(Target, PropertyId::PosX) != 100 ||
+		H.GetProperty(Target, PropertyId::PosY) != 200 ||
+		H.GetProperty(Target, PropertyId::PosZ) != 300)
+		return FHktTestResult::Fail(TEXT("ScopedRegBlock"), TEXT("Position should be copied via ScopedRegBlock"));
+
+	return FHktTestResult::Pass(TEXT("ScopedRegBlock"));
+}
+
+// ============================================================================
 // Public: 테스트 실행
 // ============================================================================
 
@@ -246,6 +459,13 @@ FHktTestReport RunControlFlowTests()
 	Report.Add(Test_YieldSeconds());
 	Report.Add(Test_Jump());
 	Report.Add(Test_JumpIf_JumpIfNot());
+	Report.Add(Test_If_EndIf());
+	Report.Add(Test_If_Else_EndIf());
+	Report.Add(Test_IfEqConst());
+	Report.Add(Test_IfPropertyLe());
+	Report.Add(Test_Repeat_EndRepeat());
+	Report.Add(Test_ScopedReg());
+	Report.Add(Test_ScopedRegBlock());
 	return Report;
 }
 

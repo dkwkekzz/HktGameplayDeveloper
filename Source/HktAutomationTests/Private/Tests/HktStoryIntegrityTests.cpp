@@ -35,6 +35,7 @@ static bool IsWriteOpCode(EOpCode Op)
 	case EOpCode::ClearOwnerUid:
 	case EOpCode::DispatchEvent:
 	case EOpCode::DispatchEventTo:
+	case EOpCode::DispatchEventFrom:
 	case EOpCode::SetForwardTarget:
 		return true;
 	default:
@@ -125,7 +126,7 @@ static FHktTestReport RunRegisteredStoryValidation()
 
 		// 3. Validator — EntityFlow + RegisterFlow
 		// 재구성: Code와 빈 Labels로 Validator 실행
-		TMap<FString, int32> EmptyLabels;
+		TMap<FName, int32> EmptyLabels;
 		FHktStoryValidator Validator(Program->Code, Tag, EmptyLabels);
 
 		bool bEntityFlowOk = Validator.ValidateEntityFlow();
