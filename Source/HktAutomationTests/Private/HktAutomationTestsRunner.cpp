@@ -22,6 +22,11 @@ namespace HktStoryIntegrityTests
 	FHktTestReport RunAllIntegrityTests();
 }
 
+namespace HktStoryScenarioTests
+{
+	FHktTestReport RunAllScenarioTests();
+}
+
 namespace HktAutomationTestsRunner
 {
 	static FHktTestReport LastReport;
@@ -74,9 +79,21 @@ namespace HktAutomationTestsRunner
 
 	void RunStoryTests()
 	{
-		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running Story integrity tests..."));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running Story tests (integrity + scenarios)..."));
 
-		FHktTestReport Report = HktStoryIntegrityTests::RunAllIntegrityTests();
+		FHktTestReport Report;
+		Report.Append(HktStoryIntegrityTests::RunAllIntegrityTests());
+		Report.Append(HktStoryScenarioTests::RunAllScenarioTests());
+
+		LastReport = Report;
+		PrintReport(Report);
+	}
+
+	void RunScenarioTests()
+	{
+		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running Story scenario tests..."));
+
+		FHktTestReport Report = HktStoryScenarioTests::RunAllScenarioTests();
 
 		LastReport = Report;
 		PrintReport(Report);
@@ -92,6 +109,7 @@ namespace HktAutomationTestsRunner
 		Report.Append(HktOpcodeTests::RunEntityTests());
 		Report.Append(HktOpcodeTests::RunCompositeTests());
 		Report.Append(HktStoryIntegrityTests::RunAllIntegrityTests());
+		Report.Append(HktStoryScenarioTests::RunAllScenarioTests());
 
 		LastReport = Report;
 		PrintReport(Report);
