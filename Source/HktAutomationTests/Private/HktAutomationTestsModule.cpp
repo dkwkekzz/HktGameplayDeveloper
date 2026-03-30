@@ -11,6 +11,7 @@ namespace HktAutomationTestsRunner
 	void RunAllTests();
 	void RunOpcodeTests();
 	void RunStoryTests();
+	void RunScenarioTests();
 	void PrintLastReport();
 }
 
@@ -57,6 +58,15 @@ void FHktAutomationTestsModule::StartupModule()
 		FConsoleCommandDelegate::CreateLambda([]()
 		{
 			HktAutomationTestsRunner::RunStoryTests();
+		}),
+		ECVF_Default));
+
+	ConsoleCommands.Add(IConsoleManager::Get().RegisterConsoleCommand(
+		TEXT("hkt.automation.scenarios"),
+		TEXT("Run Story scenario (execution) tests only"),
+		FConsoleCommandDelegate::CreateLambda([]()
+		{
+			HktAutomationTestsRunner::RunScenarioTests();
 		}),
 		ECVF_Default));
 
