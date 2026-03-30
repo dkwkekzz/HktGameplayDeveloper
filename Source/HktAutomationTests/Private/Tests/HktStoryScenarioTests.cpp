@@ -58,8 +58,7 @@ static FHktTestResult Test_Heal_Recovery()
 	FHktEntityId Self = H.CreateEntityWithProperties(Props);
 
 	// Param0 = HealAmount (0이면 기본 50 사용)
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	EVMStatus Status = H.ExecuteProgram(ProgramCopy, Self, InvalidEntityId, 500);
+	EVMStatus Status = H.ExecuteProgram(Program, Self, InvalidEntityId, 500);
 	H.Teardown();
 
 	if (Status != EVMStatus::Completed)
@@ -89,8 +88,7 @@ static FHktTestResult Test_Heal_NoClamping()
 	Props.Add(PropertyId::NextActionFrame, 0);
 	FHktEntityId Self = H.CreateEntityWithProperties(Props);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	EVMStatus Status = H.ExecuteProgram(ProgramCopy, Self, InvalidEntityId, 500);
+	EVMStatus Status = H.ExecuteProgram(Program, Self, InvalidEntityId, 500);
 	H.Teardown();
 
 	if (Status != EVMStatus::Completed)
@@ -123,8 +121,7 @@ static FHktTestResult Test_Buff_AttackPowerIncrease()
 	Props.Add(PropertyId::NextActionFrame, 0);
 	FHktEntityId Self = H.CreateEntityWithProperties(Props);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	EVMStatus Status = H.ExecuteProgram(ProgramCopy, Self, InvalidEntityId, 500);
+	EVMStatus Status = H.ExecuteProgram(Program, Self, InvalidEntityId, 500);
 	H.Teardown();
 
 	if (Status != EVMStatus::Completed)
@@ -169,8 +166,7 @@ static FHktTestResult Test_Lightning_DirectDamage()
 	TargetProps.Add(PropertyId::CollisionMask, 0);
 	FHktEntityId Target = H.CreateEntityWithProperties(TargetProps);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	EVMStatus Status = H.ExecuteProgram(ProgramCopy, Caster, Target, 500);
+	EVMStatus Status = H.ExecuteProgram(Program, Caster, Target, 500);
 	H.Teardown();
 
 	if (Status != EVMStatus::Completed)
@@ -223,8 +219,7 @@ static FHktTestResult Test_Lightning_AoEDamage()
 	AoEProps.Add(PropertyId::PosZ, 0);
 	FHktEntityId AoEVictim = H.CreateEntityWithProperties(AoEProps);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	EVMStatus Status = H.ExecuteProgram(ProgramCopy, Caster, Target, 500);
+	EVMStatus Status = H.ExecuteProgram(Program, Caster, Target, 500);
 	H.Teardown();
 
 	if (Status != EVMStatus::Completed)
@@ -271,9 +266,8 @@ static FHktTestResult Test_BasicAttack_Damage()
 	TgtProps.Add(PropertyId::PosZ, 0);
 	FHktEntityId Target = H.CreateEntityWithProperties(TgtProps);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
 	// Contains WaitAnimEnd → timer auto-advance in ExecuteProgram
-	EVMStatus Status = H.ExecuteProgram(ProgramCopy, Attacker, Target, 500);
+	EVMStatus Status = H.ExecuteProgram(Program, Attacker, Target, 500);
 	H.Teardown();
 
 	if (Status != EVMStatus::Completed)
@@ -317,8 +311,7 @@ static FHktTestResult Test_BasicAttack_Kill()
 	TgtProps.Add(PropertyId::PosZ, 0);
 	FHktEntityId Target = H.CreateEntityWithProperties(TgtProps);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	EVMStatus Status = H.ExecuteProgram(ProgramCopy, Attacker, Target, 500);
+	EVMStatus Status = H.ExecuteProgram(Program, Attacker, Target, 500);
 	H.Teardown();
 
 	if (Status != EVMStatus::Completed)
@@ -368,8 +361,7 @@ static FHktTestResult Test_BasicAttack_SelfExclude()
 	TgtProps.Add(PropertyId::PosZ, 0);
 	FHktEntityId Target = H.CreateEntityWithProperties(TgtProps);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	H.ExecuteProgram(ProgramCopy, Self, Target, 500);
+	H.ExecuteProgram(Program, Self, Target, 500);
 	H.Teardown();
 
 	// Self는 자기 자신을 공격하지 않아야 함
@@ -399,8 +391,7 @@ static FHktTestResult Test_Buff_CooldownUpdate()
 	Props.Add(PropertyId::NextActionFrame, 0);
 	FHktEntityId Self = H.CreateEntityWithProperties(Props);
 
-	TSharedPtr<FHktVMProgram> ProgramCopy = MakeShared<FHktVMProgram>(*Program);
-	H.ExecuteProgram(ProgramCopy, Self, InvalidEntityId, 500);
+	H.ExecuteProgram(Program, Self, InvalidEntityId, 500);
 	H.Teardown();
 
 	int32 NextAction = H.GetProperty(Self, PropertyId::NextActionFrame);

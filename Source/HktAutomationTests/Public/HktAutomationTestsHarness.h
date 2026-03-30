@@ -44,6 +44,13 @@ public:
 		FHktEntityId Target = InvalidEntityId,
 		int32 MaxTicks = 100);
 
+	/** Registry에서 가져온 const 프로그램을 직접 실행 (복사 불필요) */
+	EVMStatus ExecuteProgram(
+		const FHktVMProgram* Program,
+		FHktEntityId Source,
+		FHktEntityId Target = InvalidEntityId,
+		int32 MaxTicks = 100);
+
 	/** 단일 틱 실행 (Yield/WaitingEvent 테스트용) */
 	EVMStatus ExecuteTick();
 

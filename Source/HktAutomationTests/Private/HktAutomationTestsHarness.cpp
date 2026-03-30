@@ -49,9 +49,22 @@ EVMStatus FHktAutomationTestHarness::ExecuteProgram(
 	{
 		return EVMStatus::Failed;
 	}
+	return ExecuteProgram(Program.Get(), Source, Target, MaxTicks);
+}
+
+EVMStatus FHktAutomationTestHarness::ExecuteProgram(
+	const FHktVMProgram* Program,
+	FHktEntityId Source,
+	FHktEntityId Target,
+	int32 MaxTicks)
+{
+	if (!Program)
+	{
+		return EVMStatus::Failed;
+	}
 
 	// Runtime 초기화
-	Runtime.Program = Program.Get();
+	Runtime.Program = Program;
 	Runtime.PC = 0;
 	Runtime.Status = EVMStatus::Ready;
 	Runtime.WaitFrames = 0;
