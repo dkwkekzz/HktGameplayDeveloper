@@ -145,11 +145,13 @@ static FHktTestResult Test_Jump()
 	H.Setup();
 	FHktEntityId E = H.CreateEntity();
 
-	auto Program = FHktStoryBuilder::Create(TestStoryTag())
+	auto B = FHktStoryBuilder::Create(TestStoryTag());
+	int32 SkipLabel = B.AllocLabel();
+	auto Program = B
 		.LoadConst(Reg::R0, 1)
-		.Jump(TEXT("skip"))
+		.Jump(SkipLabel)
 		.LoadConst(Reg::R0, 999)  // 이 줄은 스킵되어야 함
-		.Label(TEXT("skip"))
+		.Label(SkipLabel)
 		.LoadConst(Reg::R1, 2)
 		.Halt()
 		.Build();
@@ -175,12 +177,14 @@ static FHktTestResult Test_JumpIf_JumpIfNot()
 
 	// JumpIf: R0=1 → 점프
 	{
-		auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		auto B1 = FHktStoryBuilder::Create(TestStoryTag());
+		int32 TakenLabel = B1.AllocLabel();
+		auto Program = B1
 			.LoadConst(Reg::R0, 1)
-			.JumpIf(Reg::R0, TEXT("taken"))
+			.JumpIf(Reg::R0, TakenLabel)
 			.LoadConst(Reg::R1, 0)
 			.Halt()
-			.Label(TEXT("taken"))
+			.Label(TakenLabel)
 			.LoadConst(Reg::R1, 100)
 			.Halt()
 			.Build();
@@ -194,12 +198,14 @@ static FHktTestResult Test_JumpIf_JumpIfNot()
 	H.Setup();
 	E = H.CreateEntity();
 	{
-		auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		auto B2 = FHktStoryBuilder::Create(TestStoryTag());
+		int32 TakenLabel2 = B2.AllocLabel();
+		auto Program = B2
 			.LoadConst(Reg::R0, 0)
-			.JumpIf(Reg::R0, TEXT("taken"))
+			.JumpIf(Reg::R0, TakenLabel2)
 			.LoadConst(Reg::R1, 50)
 			.Halt()
-			.Label(TEXT("taken"))
+			.Label(TakenLabel2)
 			.LoadConst(Reg::R1, 100)
 			.Halt()
 			.Build();
@@ -213,12 +219,14 @@ static FHktTestResult Test_JumpIf_JumpIfNot()
 	H.Setup();
 	E = H.CreateEntity();
 	{
-		auto Program = FHktStoryBuilder::Create(TestStoryTag())
+		auto B3 = FHktStoryBuilder::Create(TestStoryTag());
+		int32 TakenLabel3 = B3.AllocLabel();
+		auto Program = B3
 			.LoadConst(Reg::R0, 0)
-			.JumpIfNot(Reg::R0, TEXT("taken"))
+			.JumpIfNot(Reg::R0, TakenLabel3)
 			.LoadConst(Reg::R1, 50)
 			.Halt()
-			.Label(TEXT("taken"))
+			.Label(TakenLabel3)
 			.LoadConst(Reg::R1, 200)
 			.Halt()
 			.Build();

@@ -449,15 +449,18 @@ static FHktTestResult Test_LabelResolution_ForwardBackward()
 	FHktEntityId E = H.CreateEntity();
 
 	// 전방 점프 + 후방 점프 (카운터 루프)
-	auto Program = FHktStoryBuilder::Create(CompositeTestTag())
+	auto B = FHktStoryBuilder::Create(CompositeTestTag());
+	int32 LoopLabel = B.AllocLabel();
+	int32 DoneLabel = B.AllocLabel();
+	auto Program = B
 		.LoadConst(Reg::R0, 0)           // counter = 0
 		.LoadConst(Reg::R1, 3)           // limit = 3
-		.Label(TEXT("loop"))
+		.Label(LoopLabel)
 		.CmpLt(Reg::R2, Reg::R0, Reg::R1)  // counter < limit?
-		.JumpIfNot(Reg::R2, TEXT("done"))    // 전방 점프
+		.JumpIfNot(Reg::R2, DoneLabel)       // 전방 점프
 		.AddImm(Reg::R0, Reg::R0, 1)
-		.Jump(TEXT("loop"))                  // 후방 점프
-		.Label(TEXT("done"))
+		.Jump(LoopLabel)                     // 후방 점프
+		.Label(DoneLabel)
 		.Halt()
 		.Build();
 
