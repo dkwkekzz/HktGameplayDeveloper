@@ -405,22 +405,28 @@ static FHktTestResult Test_WaitCollision()
 		.Halt()
 		.Build();
 
-	// 첫 실행 — WaitingEvent에서 정지
+	// 첫 실행 — WaitingEvent에서 정지 (MaxTicks=1로 제한)
 	EVMStatus Status = H.ExecuteProgram(Program, Self, InvalidEntityId, 1);
-	if (Status == EVMStatus::WaitingEvent)
-	{
-		// 충돌 이벤트 주입
-		FHktEntityId HitEntity = H.CreateEntity();
-		H.InjectCollisionEvent(HitEntity);
 
-		// 재개
-		Status = H.ExecuteProgram(Program, Self, InvalidEntityId, 1);
-		// Note: ExecuteProgram은 새 프로그램을 설정하므로, 대신 ExecuteTick 사용
-	}
+	if (Status != EVMStatus::WaitingEvent)
+		return FHktTestResult::Fail(TEXT("WaitCollision"), TEXT("Expected WaitingEvent after WaitCollision"));
+
+	// 충돌 이벤트 주입
+	FHktEntityId HitEntity = H.CreateEntity();
+	H.InjectCollisionEvent(HitEntity);
+
+	// ExecuteTick으로 재개 (Runtime 상태 유지)
+	Status = H.ExecuteTick();
 
 	H.Teardown();
 
-	// WaitCollision 자체의 상태 전환만 확인
+	if (Status != EVMStatus::Completed)
+		return FHktTestResult::Fail(TEXT("WaitCollision"), TEXT("Expected Completed after collision inject"));
+	if (H.GetRegister(Reg::R0) != 42)
+		return FHktTestResult::Fail(TEXT("WaitCollision"), TEXT("R0 should be 42 after resume"));
+	if (H.GetRegister(Reg::Hit) != static_cast<int32>(HitEntity))
+		return FHktTestResult::Fail(TEXT("WaitCollision"), TEXT("Hit register should contain HitEntity"));
+
 	return FHktTestResult::Pass(TEXT("WaitCollision"));
 }
 
