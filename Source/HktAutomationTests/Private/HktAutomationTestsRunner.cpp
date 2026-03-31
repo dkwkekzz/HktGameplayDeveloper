@@ -27,6 +27,11 @@ namespace HktStoryScenarioTests
 	FHktTestReport RunAllScenarioTests();
 }
 
+namespace HktStoryJsonParserTests
+{
+	FHktTestReport RunAllJsonParserTests();
+}
+
 namespace HktAutomationTestsRunner
 {
 	static FHktTestReport LastReport;
@@ -79,11 +84,22 @@ namespace HktAutomationTestsRunner
 
 	void RunStoryTests()
 	{
-		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running Story tests (integrity + scenarios)..."));
+		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running Story tests (integrity + scenarios + JSON parser)..."));
 
 		FHktTestReport Report;
 		Report.Append(HktStoryIntegrityTests::RunAllIntegrityTests());
 		Report.Append(HktStoryScenarioTests::RunAllScenarioTests());
+		Report.Append(HktStoryJsonParserTests::RunAllJsonParserTests());
+
+		LastReport = Report;
+		PrintReport(Report);
+	}
+
+	void RunJsonParserTests()
+	{
+		UE_LOG(LogHktAutomationTests, Log, TEXT("[HktAutomationTests] Running JSON Parser tests..."));
+
+		FHktTestReport Report = HktStoryJsonParserTests::RunAllJsonParserTests();
 
 		LastReport = Report;
 		PrintReport(Report);
@@ -110,6 +126,7 @@ namespace HktAutomationTestsRunner
 		Report.Append(HktOpcodeTests::RunCompositeTests());
 		Report.Append(HktStoryIntegrityTests::RunAllIntegrityTests());
 		Report.Append(HktStoryScenarioTests::RunAllScenarioTests());
+		Report.Append(HktStoryJsonParserTests::RunAllJsonParserTests());
 
 		LastReport = Report;
 		PrintReport(Report);

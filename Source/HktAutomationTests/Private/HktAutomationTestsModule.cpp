@@ -12,6 +12,7 @@ namespace HktAutomationTestsRunner
 	void RunOpcodeTests();
 	void RunStoryTests();
 	void RunScenarioTests();
+	void RunJsonParserTests();
 	void PrintLastReport();
 }
 
@@ -67,6 +68,15 @@ void FHktAutomationTestsModule::StartupModule()
 		FConsoleCommandDelegate::CreateLambda([]()
 		{
 			HktAutomationTestsRunner::RunScenarioTests();
+		}),
+		ECVF_Default));
+
+	ConsoleCommands.Add(IConsoleManager::Get().RegisterConsoleCommand(
+		TEXT("hkt.automation.jsonparser"),
+		TEXT("Run JSON Parser tests only"),
+		FConsoleCommandDelegate::CreateLambda([]()
+		{
+			HktAutomationTestsRunner::RunJsonParserTests();
 		}),
 		ECVF_Default));
 
