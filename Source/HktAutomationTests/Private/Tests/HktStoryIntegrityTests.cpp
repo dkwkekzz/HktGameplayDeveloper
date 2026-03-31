@@ -125,9 +125,12 @@ static FHktTestReport RunRegisteredStoryValidation()
 		}
 
 		// 3. Validator — EntityFlow + RegisterFlow
-		// 재구성: Code와 빈 Labels로 Validator 실행
+		// NOTE: Labels/IntLabels는 Build() 시점에 resolve 후 FHktVMProgram에 보존되지 않음.
+		// 빈 맵을 전달하면 합류점 판정이 부정확할 수 있으나, 현재 API 제약상 불가피.
+		// 정확한 합류점 판정이 필요하면 FHktVMProgram에 Labels/IntLabels 보존 필요.
 		TMap<FName, int32> EmptyLabels;
-		FHktStoryValidator Validator(Program->Code, Tag, EmptyLabels);
+		TMap<int32, int32> EmptyIntLabels;
+		FHktStoryValidator Validator(Program->Code, Tag, EmptyLabels, EmptyIntLabels);
 
 		bool bEntityFlowOk = Validator.ValidateEntityFlow();
 		if (!bEntityFlowOk)
