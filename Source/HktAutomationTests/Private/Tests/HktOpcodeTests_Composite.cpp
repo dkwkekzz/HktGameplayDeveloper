@@ -296,6 +296,133 @@ static FHktTestResult Test_ForEachInRadius_Empty()
 }
 
 // ============================================================================
+// Position Convenience Methods Tests
+// ============================================================================
+
+static FHktTestResult Test_CopyPosition()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+
+	TMap<uint16, int32> SrcProps;
+	SrcProps.Add(PropertyId::PosX, 111);
+	SrcProps.Add(PropertyId::PosY, 222);
+	SrcProps.Add(PropertyId::PosZ, 333);
+	FHktEntityId Src = H.CreateEntityWithProperties(SrcProps);
+	FHktEntityId Dst = H.CreateEntity();
+
+	auto Program = FHktStoryBuilder::Create(CompositeTestTag())
+		.CopyPosition(Reg::Target, Reg::Self)
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, Src, Dst);
+	H.Teardown();
+
+	if (H.GetProperty(Dst, PropertyId::PosX) != 111 ||
+		H.GetProperty(Dst, PropertyId::PosY) != 222 ||
+		H.GetProperty(Dst, PropertyId::PosZ) != 333)
+		return FHktTestResult::Fail(TEXT("CopyPosition"), TEXT("Destination position should match source"));
+
+	return FHktTestResult::Pass(TEXT("CopyPosition"));
+}
+
+static FHktTestResult Test_MoveTowardProperty()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+
+	// Self에 TargetPos 프로퍼티를 통해 목표 위치 설정
+	TMap<uint16, int32> SelfProps;
+	SelfProps.Add(PropertyId::TargetPosX, 400);
+	SelfProps.Add(PropertyId::TargetPosY, 500);
+	SelfProps.Add(PropertyId::TargetPosZ, 600);
+	FHktEntityId Self = H.CreateEntityWithProperties(SelfProps);
+
+	// MoveTowardProperty: Self의 TargetPosX/Y/Z (연속 3개 프로퍼티)를 읽어 이동 시작
+	auto Program = FHktStoryBuilder::Create(CompositeTestTag())
+		.MoveTowardProperty(Reg::Self, PropertyId::TargetPosX, 200)
+		.Halt()
+		.Build();
+
+	H.ExecuteProgram(Program, Self);
+	H.Teardown();
+
+	if (H.GetProperty(Self, PropertyId::MoveTargetX) != 400)
+		return FHktTestResult::Fail(TEXT("MoveTowardProperty"), TEXT("MoveTargetX should be 400"));
+	if (H.GetProperty(Self, PropertyId::MoveTargetY) != 500)
+		return FHktTestResult::Fail(TEXT("MoveTowardProperty"), TEXT("MoveTargetY should be 500"));
+	if (H.GetProperty(Self, PropertyId::MoveForce) != 200)
+		return FHktTestResult::Fail(TEXT("MoveTowardProperty"), TEXT("MoveForce should be 200"));
+	if (H.GetProperty(Self, PropertyId::IsMoving) != 1)
+		return FHktTestResult::Fail(TEXT("MoveTowardProperty"), TEXT("IsMoving should be 1"));
+
+	return FHktTestResult::Pass(TEXT("MoveTowardProperty"));
+}
+
+static FHktTestResult Test_PlayVFXAtEntity()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+
+	TMap<uint16, int32> Props;
+	Props.Add(PropertyId::PosX, 100);
+	Props.Add(PropertyId::PosY, 200);
+	Props.Add(PropertyId::PosZ, 300);
+	FHktEntityId Self = H.CreateEntityWithProperties(Props);
+
+	FGameplayTag VFXTag = FGameplayTag::RequestGameplayTag(FName(TEXT("VFX.Test.Spark")), false);
+
+	// PlayVFXAtEntity는 내부에서 GetPosition + PlayVFX를 조합
+	// 프레젠테이션 opcode이므로 WorldState 변경 없음 — 빌드/실행 성공 여부만 검증
+	auto Program = FHktStoryBuilder::Create(CompositeTestTag())
+		.PlayVFXAtEntity(Reg::Self, VFXTag)
+		.Halt()
+		.Build();
+
+	if (!Program)
+		return FHktTestResult::Fail(TEXT("PlayVFXAtEntity"), TEXT("Program build failed"));
+
+	EVMStatus Status = H.ExecuteProgram(Program, Self);
+	H.Teardown();
+
+	if (Status != EVMStatus::Completed)
+		return FHktTestResult::Fail(TEXT("PlayVFXAtEntity"), TEXT("Expected Completed"));
+
+	return FHktTestResult::Pass(TEXT("PlayVFXAtEntity"));
+}
+
+static FHktTestResult Test_PlaySoundAtEntity()
+{
+	FHktAutomationTestHarness H;
+	H.Setup();
+
+	TMap<uint16, int32> Props;
+	Props.Add(PropertyId::PosX, 100);
+	Props.Add(PropertyId::PosY, 200);
+	Props.Add(PropertyId::PosZ, 300);
+	FHktEntityId Self = H.CreateEntityWithProperties(Props);
+
+	FGameplayTag SoundTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Sound.Test.Hit")), false);
+
+	auto Program = FHktStoryBuilder::Create(CompositeTestTag())
+		.PlaySoundAtEntity(Reg::Self, SoundTag)
+		.Halt()
+		.Build();
+
+	if (!Program)
+		return FHktTestResult::Fail(TEXT("PlaySoundAtEntity"), TEXT("Program build failed"));
+
+	EVMStatus Status = H.ExecuteProgram(Program, Self);
+	H.Teardown();
+
+	if (Status != EVMStatus::Completed)
+		return FHktTestResult::Fail(TEXT("PlaySoundAtEntity"), TEXT("Expected Completed"));
+
+	return FHktTestResult::Pass(TEXT("PlaySoundAtEntity"));
+}
+
+// ============================================================================
 // Precondition Tests
 // ============================================================================
 
@@ -489,6 +616,10 @@ FHktTestReport RunCompositeTests()
 	Report.Add(Test_ApplyDamage_MinDamage());
 	Report.Add(Test_ForEachInRadius());
 	Report.Add(Test_ForEachInRadius_Empty());
+	Report.Add(Test_CopyPosition());
+	Report.Add(Test_MoveTowardProperty());
+	Report.Add(Test_PlayVFXAtEntity());
+	Report.Add(Test_PlaySoundAtEntity());
 	Report.Add(Test_Precondition_Pass());
 	Report.Add(Test_Precondition_Fail());
 	Report.Add(Test_Precondition_ReadOnly());
