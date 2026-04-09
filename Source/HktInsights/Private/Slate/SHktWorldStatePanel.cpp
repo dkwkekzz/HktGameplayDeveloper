@@ -2,6 +2,7 @@
 
 #include "Slate/SHktWorldStatePanel.h"
 #include "HktCoreDataCollector.h"
+#include "HktCoreProperties.h"
 #include "GameplayTagsManager.h"
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SSearchBox.h"
@@ -22,6 +23,10 @@ namespace WSColors
     static const FLinearColor Dim(0.4f, 0.4f, 0.4f);
     static const FLinearColor TagValue(0.55f, 0.9f, 0.55f);     // 태그 값: 초록
     static const FLinearColor DebugValue(0.95f, 0.85f, 0.4f);   // 디버그 정보: 노랑
+    static const FLinearColor HotValue(1.0f, 0.75f, 0.35f);     // Hot 프로퍼티: 주황
+    static const FLinearColor ColdValue(0.55f, 0.75f, 0.95f);   // Cold 프로퍼티: 파랑
+    static const FLinearColor SectionHeader(0.95f, 0.85f, 0.4f); // 섹션 헤더: 노랑
+    static const FLinearColor ArchetypeValue(0.85f, 0.65f, 1.0f); // Archetype: 보라
 }
 
 // ── Tag NetIndex 해석 ──
@@ -45,13 +50,13 @@ static FString ResolveTagNetIndex(const FString& RawValue)
     return TagName.ToString();
 }
 
-static FSlateColor GetPropValueColor(const FString& PropName)
+static FSlateColor GetPropValueColor(const FString& PropName, EHktPropertyTier Tier)
 {
     if (IsTagProperty(PropName))
     {
         return FSlateColor(WSColors::TagValue);
     }
-    return FSlateColor(WSColors::Value);
+    return FSlateColor(Tier == EHktPropertyTier::Hot ? WSColors::HotValue : WSColors::ColdValue);
 }
 
 // ============================================================================
@@ -164,10 +169,13 @@ void SHktWorldStatePanel::Construct(const FArguments& InArgs)
                     SNew(SHeaderRow)
                     + SHeaderRow::Column(TEXT("_Entity"))
                         .DefaultLabel(LOCTEXT("ColEntity", "Entity"))
-                        .FillWidth(1.0f)
+                        .FillWidth(1.2f)
+                    + SHeaderRow::Column(TEXT("Archetype"))
+                        .DefaultLabel(LOCTEXT("ColArchetype", "Archetype"))
+                        .FillWidth(0.6f)
                     + SHeaderRow::Column(TEXT("Owner"))
                         .DefaultLabel(LOCTEXT("ColOwner", "Owner"))
-                        .FillWidth(1.0f)
+                        .FillWidth(0.8f)
                 )
             ]
 
@@ -268,8 +276,14 @@ void SHktWorldStatePanel::RefreshData()
     TSet<FString> SeenProps;
     TArray<FString> NewPropertyOrder;
 
-    // Owner 선두 고정
-    NewPropertyOrder.Add(TEXT("Owner")); SeenProps.Add(TEXT("Owner"));
+    // 메타 필드는 별도 표시 (헤더/컬럼)하므로 프로퍼티 목록에서 제외
+    SeenProps.Add(TEXT("Owner"));
+    SeenProps.Add(TEXT("Archetype"));
+    SeenProps.Add(TEXT("DebugName"));
+    SeenProps.Add(TEXT("ClassTag"));
+    SeenProps.Add(TEXT("StoryTag"));
+    SeenProps.Add(TEXT("CreationFrame"));
+    SeenProps.Add(TEXT("Tags"));
 
     for (const auto& Entry : Entries)
     {
@@ -306,11 +320,31 @@ void SHktWorldStatePanel::RefreshData()
         }
     }
 
-    // Owner 이후 프로퍼티 알파벳 정렬
-    if (NewPropertyOrder.Num() > 1)
+    // 프로퍼티를 Tier별로 분류 (ID 순 정렬)
+    TArray<FString> NewHotProps;
+    TArray<FString> NewColdProps;
+    for (const FString& PropName : NewPropertyOrder)
     {
-        Algo::Sort(NewPropertyOrder);
+        const FHktPropertyDef* Def = HktProperty::FindByName(PropName);
+        if (Def && Def->IsHot())
+            NewHotProps.Add(PropName);
+        else
+            NewColdProps.Add(PropName);
     }
+    // ID 순 정렬
+    auto SortByPropId = [](TArray<FString>& Props)
+    {
+        Props.Sort([](const FString& A, const FString& B)
+        {
+            const FHktPropertyDef* DA = HktProperty::FindByName(A);
+            const FHktPropertyDef* DB = HktProperty::FindByName(B);
+            uint16 IdA = DA ? DA->Id : 0xFFFF;
+            uint16 IdB = DB ? DB->Id : 0xFFFF;
+            return IdA < IdB;
+        });
+    };
+    SortByPropId(NewHotProps);
+    SortByPropId(NewColdProps);
 
     // ── 메타 갱신 ──
     FrameText->SetText(FText::FromString(
@@ -390,7 +424,8 @@ void SHktWorldStatePanel::RefreshData()
     }
 
     // 프로퍼티 목록 갱신 (Detail 재구성은 엔티티 선택 변경 시에만)
-    AllPropertyNames = NewPropertyOrder;
+    HotPropertyNames = MoveTemp(NewHotProps);
+    ColdPropertyNames = MoveTemp(NewColdProps);
 }
 
 // ============================================================================
@@ -475,6 +510,25 @@ TSharedRef<ITableRow> SHktWorldStatePanel::OnGenerateRow(
                     .Margin(FMargin(4, 1));
             }
 
+            // Archetype 컬럼: 보라색으로 표시
+            if (ColStr == TEXT("Archetype"))
+            {
+                TWeakPtr<FHktWorldStateEntityRow> WeakItem2 = Item;
+                return SNew(STextBlock)
+                    .Text(TAttribute<FText>::CreateLambda([WeakItem2]()
+                    {
+                        if (auto E = WeakItem2.Pin())
+                        {
+                            if (const FString* V = E->Props.Find(TEXT("Archetype")))
+                                return FText::FromString(*V);
+                        }
+                        return FText::FromString(TEXT("-"));
+                    }))
+                    .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+                    .ColorAndOpacity(FSlateColor(WSColors::ArchetypeValue))
+                    .Margin(FMargin(4, 1));
+            }
+
             // TAttribute 람다로 값 실시간 갱신 (행 재생성 없이)
             TWeakPtr<FHktWorldStateEntityRow> WeakItem = Item;
             FString CapturedCol = ColStr;
@@ -555,7 +609,7 @@ void SHktWorldStatePanel::BuildDetailPanel()
         .ColorAndOpacity(FSlateColor(WSColors::Key))
     ];
 
-    // ── 서브 헤더: ClassTag / StoryTag / CreationFrame ──
+    // ── 서브 헤더: Archetype / ClassTag / StoryTag / CreationFrame ──
     DetailContainer->AddSlot()
     .AutoHeight()
     .Padding(4, 0, 4, 4)
@@ -566,6 +620,10 @@ void SHktWorldStatePanel::BuildDetailPanel()
             if (auto E = WeakEntity.Pin())
             {
                 TArray<FString> Parts;
+                if (const FString* AT = E->Props.Find(TEXT("Archetype")))
+                {
+                    Parts.Add(FString::Printf(TEXT("Archetype: %s"), **AT));
+                }
                 if (const FString* CT = E->Props.Find(TEXT("ClassTag")))
                 {
                     Parts.Add(FString::Printf(TEXT("Class: %s"), **CT));
@@ -578,6 +636,13 @@ void SHktWorldStatePanel::BuildDetailPanel()
                 {
                     Parts.Add(FString::Printf(TEXT("Born: F%s"), **CF));
                 }
+                if (const FString* TG = E->Props.Find(TEXT("Tags")))
+                {
+                    if (!TG->IsEmpty())
+                    {
+                        Parts.Add(FString::Printf(TEXT("Tags: %s"), **TG));
+                    }
+                }
                 if (Parts.Num() > 0)
                 {
                     return FText::FromString(FString::Join(Parts, TEXT("  |  ")));
@@ -589,13 +654,26 @@ void SHktWorldStatePanel::BuildDetailPanel()
         .ColorAndOpacity(FSlateColor(WSColors::DebugValue))
     ];
 
-    // ── 프로퍼티 목록 — 위젯 1회 생성, 값은 TAttribute 람다 ──
+    // ── 프로퍼티 목록 — Tier별 섹션, 위젯 1회 생성, 값은 TAttribute 람다 ──
     TSharedRef<SScrollBox> PropsScroll = SNew(SScrollBox);
 
-    for (const FString& PropName : AllPropertyNames)
+    // 섹션 헤더 + 프로퍼티 행 추가 헬퍼
+    auto AddSectionHeader = [&PropsScroll](const FText& Title)
+    {
+        PropsScroll->AddSlot()
+        .Padding(4, 6, 4, 2)
+        [
+            SNew(STextBlock)
+            .Text(Title)
+            .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+            .ColorAndOpacity(FSlateColor(WSColors::SectionHeader))
+        ];
+    };
+
+    auto AddPropRow = [&PropsScroll, &WeakEntity](const FString& PropName, EHktPropertyTier Tier)
     {
         FString CapturedProp = PropName;
-        FSlateColor ValColor = GetPropValueColor(PropName);
+        FSlateColor ValColor = GetPropValueColor(PropName, Tier);
 
         PropsScroll->AddSlot()
         .Padding(4, 1)
@@ -634,6 +712,26 @@ void SHktWorldStatePanel::BuildDetailPanel()
                 .ColorAndOpacity(ValColor)
             ]
         ];
+    };
+
+    // Hot 섹션
+    if (HotPropertyNames.Num() > 0)
+    {
+        AddSectionHeader(FText::FromString(FString::Printf(TEXT("Hot Properties (%d)"), HotPropertyNames.Num())));
+        for (const FString& PropName : HotPropertyNames)
+        {
+            AddPropRow(PropName, EHktPropertyTier::Hot);
+        }
+    }
+
+    // Cold 섹션
+    if (ColdPropertyNames.Num() > 0)
+    {
+        AddSectionHeader(FText::FromString(FString::Printf(TEXT("Cold Properties (%d)"), ColdPropertyNames.Num())));
+        for (const FString& PropName : ColdPropertyNames)
+        {
+            AddPropRow(PropName, EHktPropertyTier::Cold);
+        }
     }
 
     DetailContainer->AddSlot()

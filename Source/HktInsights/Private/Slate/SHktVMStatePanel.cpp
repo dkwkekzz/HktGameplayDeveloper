@@ -26,6 +26,7 @@ namespace VMColors
     static const FLinearColor Blocked(0.9f, 0.6f, 0.2f);         // Orange
     static const FLinearColor Yielded(0.85f, 0.85f, 0.4f);       // Yellow
     static const FLinearColor Failed(0.9f, 0.3f, 0.3f);          // Red
+    static const FLinearColor Archetype(0.85f, 0.65f, 1.0f);     // Purple (Archetype)
 }
 
 static FSlateColor GetStatusColor(const FString& Status)
@@ -305,8 +306,9 @@ void SHktVMStatePanel::RefreshData()
         if (!Entry.Key.StartsWith(TEXT("E_"))) continue;
         CurrentEntityKeys.Add(Entry.Key);
 
-        // DebugName 파싱
+        // DebugName, Archetype 파싱
         FString DebugName;
+        FString Archetype;
         TArray<FString> Segments;
         Entry.Value.ParseIntoArray(Segments, TEXT("|"), true);
         for (FString& Seg : Segments)
@@ -315,14 +317,18 @@ void SHktVMStatePanel::RefreshData()
             if (Seg.StartsWith(TEXT("DebugName=")))
             {
                 DebugName = Seg.Mid(10);
-                break;
+            }
+            else if (Seg.StartsWith(TEXT("Archetype=")))
+            {
+                Archetype = Seg.Mid(10);
             }
         }
 
         if (TSharedPtr<FHktVMEntityRow>* Existing = EntityRowMap.Find(Entry.Key))
         {
-            // 기존: DebugName만 갱신 (VMCount/VMNames는 아래에서 갱신)
+            // 기존: DebugName, Archetype 갱신 (VMCount/VMNames는 아래에서 갱신)
             (*Existing)->DebugName = DebugName;
+            (*Existing)->Archetype = Archetype;
         }
         else
         {
@@ -330,6 +336,7 @@ void SHktVMStatePanel::RefreshData()
             TSharedPtr<FHktVMEntityRow> Row = MakeShared<FHktVMEntityRow>();
             Row->EntityKey = Entry.Key;
             Row->DebugName = DebugName;
+            Row->Archetype = Archetype;
             EntityRowMap.Add(Entry.Key, Row);
             bEntityAdded = true;
         }
@@ -555,7 +562,8 @@ void SHktVMStatePanel::RebuildFilteredEntityRows()
         {
             bool bMatch = Row->EntityKey.Contains(FilterText)
                 || Row->DebugName.Contains(FilterText)
-                || Row->VMNames.Contains(FilterText);
+                || Row->VMNames.Contains(FilterText)
+                || Row->Archetype.Contains(FilterText);
             if (bMatch)
             {
                 FilteredEntityRows.Add(Row);
@@ -604,34 +612,60 @@ TSharedRef<ITableRow> SHktVMStatePanel::OnGenerateEntityRow(
 
     return SNew(STableRow<TSharedPtr<FHktVMEntityRow>>, OwnerTable)
     [
-        SNew(STextBlock)
-        .Text(TAttribute<FText>::CreateLambda([WeakItem]()
-        {
-            if (auto E = WeakItem.Pin())
+        SNew(SHorizontalBox)
+
+        // Entity Key + DebugName + VM 요약
+        + SHorizontalBox::Slot()
+        .FillWidth(1.0f)
+        [
+            SNew(STextBlock)
+            .Text(TAttribute<FText>::CreateLambda([WeakItem]()
             {
-                FString Label = E->EntityKey;
-                if (!E->DebugName.IsEmpty())
+                if (auto E = WeakItem.Pin())
                 {
-                    Label += FString::Printf(TEXT("  [%s]"), *E->DebugName);
+                    FString Label = E->EntityKey;
+                    if (!E->DebugName.IsEmpty())
+                    {
+                        Label += FString::Printf(TEXT("  [%s]"), *E->DebugName);
+                    }
+                    if (E->VMCount > 0)
+                    {
+                        Label += FString::Printf(TEXT("  (%d VMs) %s"), E->VMCount, *E->VMNames);
+                    }
+                    return FText::FromString(Label);
                 }
-                if (E->VMCount > 0)
-                {
-                    Label += FString::Printf(TEXT("  (%d VMs) %s"), E->VMCount, *E->VMNames);
-                }
-                return FText::FromString(Label);
-            }
-            return FText::GetEmpty();
-        }))
-        .ColorAndOpacity(TAttribute<FSlateColor>::CreateLambda([WeakItem]()
-        {
-            if (auto E = WeakItem.Pin())
+                return FText::GetEmpty();
+            }))
+            .ColorAndOpacity(TAttribute<FSlateColor>::CreateLambda([WeakItem]()
             {
-                return FSlateColor((E->VMCount > 0) ? VMColors::EntityKey : VMColors::EntityDim);
-            }
-            return FSlateColor(VMColors::EntityDim);
-        }))
-        .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-        .Margin(FMargin(4, 2))
+                if (auto E = WeakItem.Pin())
+                {
+                    return FSlateColor((E->VMCount > 0) ? VMColors::EntityKey : VMColors::EntityDim);
+                }
+                return FSlateColor(VMColors::EntityDim);
+            }))
+            .Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+            .Margin(FMargin(4, 2))
+        ]
+
+        // Archetype 뱃지
+        + SHorizontalBox::Slot()
+        .AutoWidth()
+        .Padding(4, 2)
+        [
+            SNew(STextBlock)
+            .Text(TAttribute<FText>::CreateLambda([WeakItem]()
+            {
+                if (auto E = WeakItem.Pin())
+                {
+                    if (!E->Archetype.IsEmpty())
+                        return FText::FromString(E->Archetype);
+                }
+                return FText::GetEmpty();
+            }))
+            .Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
+            .ColorAndOpacity(FSlateColor(VMColors::Archetype))
+        ]
     ];
 }
 
