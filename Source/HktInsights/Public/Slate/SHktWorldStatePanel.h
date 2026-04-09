@@ -6,6 +6,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Views/SHeaderRow.h"
+#include "HktCoreProperties.h"
 
 /**
  * FHktWorldStateEntityRow - 엔티티 행 데이터 (안정적 포인터, Props만 in-place 갱신)
@@ -58,7 +59,8 @@ private:
     // 하단: 선택 상세
     FString SelectedEntityKey;
     TSharedPtr<SVerticalBox> DetailContainer;
-    TArray<FString> AllPropertyNames;    // 전체 프로퍼티 목록
+    TArray<FString> HotPropertyNames;    // Hot Tier 프로퍼티 (ID 순)
+    TArray<FString> ColdPropertyNames;   // Cold Tier 프로퍼티 (ID 순)
 
     uint32 CachedVersion = 0;
 };

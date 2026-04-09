@@ -14,6 +14,7 @@ struct FHktVMEntityRow
 {
     FString EntityKey;     // "E_1"
     FString DebugName;     // "Goblin" (WorldState에서)
+    FString Archetype;     // "Character" (WorldState에서)
     int32 VMCount = 0;
     FString VMNames;       // "Attack,Move"
 };
